@@ -1,0 +1,164 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Sentinel brand tokens */
+  --color-cyan: var(--cyan);
+  --color-coral: var(--coral);
+  --color-amber: var(--amber);
+  --color-indigo: var(--indigo);
+  --color-tangerine: var(--tangerine);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+}
+
+:root {
+  color-scheme: light;
+  --radius: 1rem;
+
+  /* Design Document palette
+     Pearl white #F9FAFB, deep indigo #1A237E,
+     bioluminescent cyan #00E5FF, vibrant coral #FF5252, soft amber #FFAB40 */
+  --background: #f4f6fb;
+  --foreground: #1a237e;
+
+  --card: rgba(255, 255, 255, 0.72);
+  --card-foreground: #1a237e;
+  --popover: #ffffff;
+  --popover-foreground: #1a237e;
+
+  --primary: #1a237e;
+  --primary-foreground: #f9fafb;
+  --secondary: #eef1f8;
+  --secondary-foreground: #1a237e;
+  --muted: #eef1f8;
+  --muted-foreground: #5b6296;
+  --accent: #e0f7fb;
+  --accent-foreground: #0b7a8c;
+  --destructive: #ff5252;
+
+  --border: rgba(26, 35, 126, 0.1);
+  --input: rgba(26, 35, 126, 0.12);
+  --ring: #00e5ff;
+
+  --cyan: #00b8d4;
+  --cyan-glow: #00e5ff;
+  --coral: #ff5252;
+  --amber: #ffab40;
+  --indigo: #1a237e;
+  --tangerine: #ff7a1a;
+
+  --chart-1: #00b8d4;
+  --chart-2: #ff5252;
+  --chart-3: #ffab40;
+  --chart-4: #1a237e;
+  --chart-5: #7c4dff;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a237e;
+  --sidebar-primary: #1a237e;
+  --sidebar-primary-foreground: #f9fafb;
+  --sidebar-accent: #e0f7fb;
+  --sidebar-accent-foreground: #0b7a8c;
+  --sidebar-border: rgba(26, 35, 126, 0.1);
+  --sidebar-ring: #00e5ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Glassmorphism panel — layered, airy, subtle borders + drop shadow */
+  .glass {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.8) inset,
+      0 20px 50px -24px rgba(26, 35, 126, 0.28);
+  }
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 24px 60px -28px rgba(26, 35, 126, 0.35);
+  }
+}
+
+@keyframes sentinel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes sentinel-dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@keyframes sentinel-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-sentinel-pulse {
+  animation: sentinel-pulse 1.6s ease-in-out infinite;
+}
+.animate-sentinel-float {
+  animation: sentinel-float 6s ease-in-out infinite;
+}
