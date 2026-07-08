@@ -1,7 +1,15 @@
 import { betterAuth } from 'better-auth'
 import { pool } from '@/lib/db'
 
+if (!process.env.BETTER_AUTH_SECRET) {
+  throw new Error(
+    'BETTER_AUTH_SECRET environment variable is not set. ' +
+    'Generate one with `openssl rand -base64 32` and add it to your Vercel project environment variables.'
+  )
+}
+
 export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET,
   database: pool,
   baseURL:
     process.env.BETTER_AUTH_URL ??
@@ -25,6 +33,8 @@ export const auth = betterAuth({
     ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
       : []),
+    // Explicit production domain
+    'https://sentinalgateway.vercel.app',
     // Local dev fallback
     'http://localhost:3000',
   ],
