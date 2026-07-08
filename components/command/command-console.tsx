@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { NervousSystemMap } from '@/components/nervous-system-map'
 import { type ServiceNode, type CircuitState } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
 import { useLive } from '@/hooks/use-live'
+import { CheckCircle, Loader2 } from 'lucide-react'
 
 const circuitStyle: Record<CircuitState, { label: string; className: string }> = {
   closed: { label: 'Circuit closed', className: 'bg-accent text-accent-foreground' },
@@ -24,9 +25,32 @@ export function CommandConsole() {
   const [selectedId, setSelectedId] = useState<string>(
     () => (nodes.find((n) => n.health === 'critical') ?? nodes[0]).id,
   )
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
   // Always read the live version of the selected node so its vitals update in real time.
   const selected = nodes.find((n) => n.id === selectedId) ?? nodes[0]
   const circuit = circuitStyle[selected.circuit]
+
+  function triggerAction(action: 'mitigate' | 'snooze') {
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/nodes/${selected.id}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        })
+        if (res.ok) {
+          setFeedback(action === 'mitigate' ? 'Mitigation applied.' : 'Snoozed for 1 hour.')
+        } else {
+          setFeedback('Action failed — please retry.')
+        }
+      } catch {
+        setFeedback('Network error — please retry.')
+      }
+      setTimeout(() => setFeedback(null), 3000)
+    })
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
@@ -89,11 +113,27 @@ export function CommandConsole() {
           </p>
         </div>
 
+        {feedback && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-card/80 px-3 py-2 text-xs text-foreground">
+            <CheckCircle className="h-3.5 w-3.5 shrink-0 text-cyan" aria-hidden />
+            {feedback}
+          </div>
+        )}
+
         <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
-          <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90">
+          <button
+            onClick={() => triggerAction('mitigate')}
+            disabled={isPending}
+            className="flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
             Apply mitigation
           </button>
-          <button className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary">
+          <button
+            onClick={() => triggerAction('snooze')}
+            disabled={isPending}
+            className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+          >
             Snooze 1h
           </button>
         </div>
