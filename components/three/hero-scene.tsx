@@ -181,7 +181,7 @@ export function HeroScene() {
       <Environment resolution={128}>
         <Lightformer form="rect" intensity={2} position={[0, 4, 4]} scale={8} color="#ffffff" />
         <Lightformer form="rect" intensity={1.4} position={[-4, 0, 3]} scale={6} color="#cfeeff" />
-        <Lightformer form="circle" intensity={1.2} position={[4, -2, 2]} scale={5} color="#ffd9cf80" />
+        <Lightformer form="circle" intensity={0.8} position={[4, -2, 2]} scale={5} color="#ffd9cf" />
       </Environment>
       <Prism />
       <ParticleStream intensity={intensity} />
