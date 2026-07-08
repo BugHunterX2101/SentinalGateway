@@ -1,6 +1,9 @@
+'use client'
+
 import Link from 'next/link'
-import { anomalySignals, type AnomalySignal } from '@/lib/sentinel-data'
+import { type AnomalySignal } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
+import { useLive, formatRelative } from '@/hooks/use-live'
 
 const severityStyle: Record<AnomalySignal['severity'], { dot: string; badge: string; label: string }> = {
   critical: { dot: 'bg-coral', badge: 'bg-coral/10 text-coral', label: 'Critical' },
@@ -9,6 +12,9 @@ const severityStyle: Record<AnomalySignal['severity'], { dot: string; badge: str
 }
 
 export function AnomalyFeed() {
+  const { anomalies } = useLive()
+  const now = Date.now()
+
   return (
     <div className="glass flex h-full flex-col rounded-2xl p-5">
       <div className="flex items-center justify-between">
@@ -19,11 +25,19 @@ export function AnomalyFeed() {
         </span>
       </div>
 
-      <ul className="mt-4 flex flex-col gap-3 overflow-y-auto">
-        {anomalySignals.map((a) => {
+      <ul className="mt-4 flex max-h-[520px] flex-col gap-3 overflow-y-auto pr-1">
+        {anomalies.length === 0 && (
+          <li className="rounded-xl border border-border bg-card/60 p-4 text-sm text-muted-foreground">
+            All services nominal — no anomalies detected.
+          </li>
+        )}
+        {anomalies.map((a) => {
           const s = severityStyle[a.severity]
           return (
-            <li key={a.id} className="rounded-xl border border-border bg-card/60 p-3.5">
+            <li
+              key={a.id}
+              className="animate-in fade-in slide-in-from-top-1 rounded-xl border border-border bg-card/60 p-3.5 duration-500"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={cn('h-2 w-2 rounded-full', s.dot)} />
@@ -40,7 +54,9 @@ export function AnomalyFeed() {
               </p>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{a.action}</p>
               <div className="mt-2.5 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>{a.detectedAt} · {a.confidence}% conf.</span>
+                <span className="tabular-nums">
+                  {formatRelative(a.detectedAt, now)} · {a.confidence}% conf.
+                </span>
                 <Link href="/decisions" className="font-medium text-cyan hover:underline">
                   Explain
                 </Link>

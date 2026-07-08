@@ -61,7 +61,7 @@ export interface AnomalySignal {
   observed: string
   severity: 'info' | 'warning' | 'critical'
   confidence: number
-  detectedAt: string
+  detectedAt: number // epoch ms
   action: string
 }
 
@@ -75,7 +75,7 @@ export const anomalySignals: AnomalySignal[] = [
     observed: '22.4%',
     severity: 'critical',
     confidence: 96,
-    detectedAt: '12s ago',
+    detectedAt: Date.now() - 12_000,
     action: 'Circuit opened, failing over to retry buffer',
   },
   {
@@ -87,7 +87,7 @@ export const anomalySignals: AnomalySignal[] = [
     observed: '212ms',
     severity: 'warning',
     confidence: 71,
-    detectedAt: '48s ago',
+    detectedAt: Date.now() - 48_000,
     action: 'Adaptive shaping: shed 18% low-priority traffic',
   },
   {
@@ -99,7 +99,7 @@ export const anomalySignals: AnomalySignal[] = [
     observed: '89%',
     severity: 'warning',
     confidence: 44,
-    detectedAt: '2m ago',
+    detectedAt: Date.now() - 120_000,
     action: 'Throttling write-heavy clients to protect headroom',
   },
   {
@@ -111,7 +111,7 @@ export const anomalySignals: AnomalySignal[] = [
     observed: '+3.1σ',
     severity: 'info',
     confidence: 9,
-    detectedAt: '6m ago',
+    detectedAt: Date.now() - 360_000,
     action: 'Observing — below intervention threshold',
   },
 ]

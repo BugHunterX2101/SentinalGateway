@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { NervousSystemMap } from '@/components/nervous-system-map'
-import { serviceNodes, type ServiceNode, type CircuitState } from '@/lib/sentinel-data'
+import { type ServiceNode, type CircuitState } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
+import { useLive } from '@/hooks/use-live'
 
 const circuitStyle: Record<CircuitState, { label: string; className: string }> = {
   closed: { label: 'Circuit closed', className: 'bg-accent text-accent-foreground' },
@@ -19,9 +20,12 @@ const healthLabel: Record<ServiceNode['health'], string> = {
 }
 
 export function CommandConsole() {
-  const [selected, setSelected] = useState<ServiceNode>(
-    serviceNodes.find((n) => n.health === 'critical') ?? serviceNodes[0],
+  const { nodes } = useLive()
+  const [selectedId, setSelectedId] = useState<string>(
+    () => (nodes.find((n) => n.health === 'critical') ?? nodes[0]).id,
   )
+  // Always read the live version of the selected node so its vitals update in real time.
+  const selected = nodes.find((n) => n.id === selectedId) ?? nodes[0]
   const circuit = circuitStyle[selected.circuit]
 
   return (
@@ -39,7 +43,7 @@ export function CommandConsole() {
           </div>
         </div>
         <div className="h-[440px] w-full p-2">
-          <NervousSystemMap onSelect={setSelected} selectedId={selected.id} />
+          <NervousSystemMap onSelect={(n) => setSelectedId(n.id)} selectedId={selected.id} />
         </div>
       </div>
 

@@ -1,6 +1,10 @@
+'use client'
+
 import { decisionMeta } from '@/lib/sentinel-data'
+import { useLive } from '@/hooks/use-live'
 
 export function DecisionSummary() {
+  const { decisionConfidence, requestsProtected } = useLive()
   return (
     <div className="flex flex-col gap-4">
       <div className="glass-strong rounded-2xl p-6">
@@ -17,17 +21,23 @@ export function DecisionSummary() {
 
         <div className="mt-5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Model confidence</span>
-            <span className="font-mono font-semibold text-foreground">{decisionMeta.confidence}%</span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
+              Model confidence · live
+            </span>
+            <span className="font-mono font-semibold tabular-nums text-foreground">{decisionConfidence}%</span>
           </div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-cyan" style={{ width: `${decisionMeta.confidence}%` }} />
+            <div
+              className="h-full rounded-full bg-cyan transition-all duration-700"
+              style={{ width: `${decisionConfidence}%` }}
+            />
           </div>
         </div>
 
         <dl className="mt-5 grid grid-cols-2 gap-3">
           <Meta label="Time to decide" value={decisionMeta.latencyToDecide} />
-          <Meta label="Requests protected" value={decisionMeta.requestsProtected} />
+          <Meta label="Requests protected" value={requestsProtected.toLocaleString('en-US')} />
         </dl>
 
         <p className="mt-4 rounded-xl border border-border bg-card/60 p-3 text-xs leading-relaxed text-muted-foreground">

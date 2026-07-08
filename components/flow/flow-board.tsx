@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { shapingPolicies, type ShapingPolicy } from '@/lib/sentinel-data'
+import { useState } from 'react'
+import { type ShapingPolicy } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
+import { useLive } from '@/hooks/use-live'
 
 const priorityColor: Record<ShapingPolicy['priority'], string> = {
   P0: 'var(--coral)',
@@ -18,19 +19,26 @@ const stateStyle: Record<ShapingPolicy['state'], string> = {
 }
 
 export function FlowBoard() {
-  const [policies, setPolicies] = useState(shapingPolicies)
-  const [activeId, setActiveId] = useState(shapingPolicies[0].id)
+  const { policies: livePolicies } = useLive()
+  // User-editable capacity budgets overlaid on the live utilization stream.
+  const [budgetOverride, setBudgetOverride] = useState<Record<string, number>>({})
+  const [activeId, setActiveId] = useState(livePolicies[0].id)
 
-  const active = policies.find((p) => p.id === activeId)!
-  const totalBudget = useMemo(
-    () => policies.filter((p) => p.state !== 'standby').reduce((sum, p) => sum + p.budget, 0),
-    [policies],
+  const policies = livePolicies.map((p) => ({
+    ...p,
+    budget: budgetOverride[p.id] ?? p.budget,
+  }))
+
+  const active = policies.find((p) => p.id === activeId) ?? policies[0]
+
+  // Live cluster utilization = mean live load across enforcing lanes.
+  const enforcing = policies.filter((p) => p.state !== 'standby')
+  const utilization = Math.round(
+    enforcing.reduce((s, p) => s + p.load, 0) / Math.max(1, enforcing.length),
   )
-  // capacity model: 500 = fully allocated across active lanes
-  const utilization = Math.min(100, Math.round((totalBudget / 500) * 100))
 
   function setBudget(id: string, budget: number) {
-    setPolicies((prev) => prev.map((p) => (p.id === id ? { ...p, budget } : p)))
+    setBudgetOverride((prev) => ({ ...prev, [id]: budget }))
   }
 
   return (
@@ -38,21 +46,23 @@ export function FlowBoard() {
       <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Shaping policies</h2>
-          <span className="text-xs text-muted-foreground">{policies.length} lanes configured</span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
+            {policies.length} lanes · live load
+          </span>
         </div>
 
         <ul className="mt-4 flex flex-col gap-3">
           {policies.map((p) => {
             const selected = p.id === activeId
+            const over = p.load > p.budget
             return (
               <li key={p.id}>
                 <button
                   onClick={() => setActiveId(p.id)}
                   className={cn(
                     'w-full rounded-xl border p-4 text-left transition-colors',
-                    selected
-                      ? 'border-cyan bg-card'
-                      : 'border-border bg-card/50 hover:bg-card',
+                    selected ? 'border-cyan bg-card' : 'border-border bg-card/50 hover:bg-card',
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -73,13 +83,25 @@ export function FlowBoard() {
                     {p.target} · {p.strategy}
                   </p>
                   <div className="mt-3 flex items-center gap-3">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                      {/* live load fill */}
                       <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${p.budget}%`, backgroundColor: priorityColor[p.priority] }}
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${Math.min(100, p.load)}%`,
+                          backgroundColor: over ? 'var(--coral)' : priorityColor[p.priority],
+                        }}
+                      />
+                      {/* budget cap marker */}
+                      <span
+                        className="absolute top-1/2 h-3.5 w-0.5 -translate-y-1/2 bg-foreground/50"
+                        style={{ left: `${Math.min(100, p.budget)}%` }}
+                        aria-hidden
                       />
                     </div>
-                    <span className="w-10 text-right font-mono text-xs text-muted-foreground">{p.budget}%</span>
+                    <span className="w-16 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      {p.load}/{p.budget}%
+                    </span>
                   </div>
                 </button>
               </li>
@@ -90,12 +112,15 @@ export function FlowBoard() {
 
       <aside className="flex flex-col gap-4">
         <div className="glass rounded-2xl p-5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Cluster capacity</p>
-          <p className="mt-1 font-mono text-3xl font-semibold text-foreground">{utilization}%</p>
+          <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
+            Cluster capacity · live
+          </p>
+          <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">{utilization}%</p>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary">
             <div
               className={cn(
-                'h-full rounded-full transition-all',
+                'h-full rounded-full transition-all duration-700',
                 utilization > 90 ? 'bg-coral' : utilization > 75 ? 'bg-amber' : 'bg-cyan',
               )}
               style={{ width: `${utilization}%` }}
@@ -120,7 +145,12 @@ export function FlowBoard() {
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{active.description}</p>
 
-          <div className="mt-5">
+          <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-card/60 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Live utilization</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{active.load}%</span>
+          </div>
+
+          <div className="mt-4">
             <label htmlFor="budget" className="flex items-center justify-between text-xs font-medium text-foreground">
               <span>Capacity budget</span>
               <span className="font-mono text-cyan">{active.budget}%</span>

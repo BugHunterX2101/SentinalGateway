@@ -2,12 +2,8 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import {
-  serviceNodes,
-  trafficEdges,
-  type NodeHealth,
-  type ServiceNode,
-} from '@/lib/sentinel-data'
+import { type NodeHealth, type ServiceNode } from '@/lib/sentinel-data'
+import { useLive } from '@/hooks/use-live'
 
 const healthColor: Record<NodeHealth, string> = {
   healthy: 'var(--cyan)',
@@ -36,6 +32,7 @@ export function NervousSystemMap({
   selectedId?: string
 }) {
   const [hovered, setHovered] = useState<string | null>(null)
+  const { nodes: serviceNodes, edges: trafficEdges } = useLive()
   const nodeById = Object.fromEntries(serviceNodes.map((n) => [n.id, n]))
 
   return (
