@@ -1,15 +1,13 @@
 import { betterAuth } from 'better-auth'
 import { pool } from '@/lib/db'
 
-if (!process.env.BETTER_AUTH_SECRET) {
-  throw new Error(
-    'BETTER_AUTH_SECRET environment variable is not set. ' +
-    'Generate one with `openssl rand -base64 32` and add it to your Vercel project environment variables.'
-  )
-}
+// NOTE: Do NOT throw here at module load — this file is imported during
+// `next build` page-data collection, where env vars are not available.
+// The runtime guard lives in the auth route handler instead.
+const secret = process.env.BETTER_AUTH_SECRET ?? ''
 
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET,
+  secret,
   database: pool,
   baseURL:
     process.env.BETTER_AUTH_URL ??
