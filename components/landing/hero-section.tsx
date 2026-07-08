@@ -1,8 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { useLive } from '@/hooks/use-live'
+
+const HeroScene = dynamic(() => import('@/components/three/hero-scene'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center">
+      <div className="h-24 w-24 rounded-full border-2 border-cyan/30 border-t-cyan animate-spin" />
+    </div>
+  ),
+})
 
 export function HeroSection() {
   const { kpis, tick } = useLive()
@@ -15,19 +24,11 @@ export function HeroSection() {
 
   return (
     <section className="relative overflow-hidden">
-      {/* Prism centerpiece — bleeds behind the copy, dominant on the right. */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-2/3 lg:w-[62%]">
-        <Image
-          src="/images/hero-prism-cropped.jpg"
-          alt="Glass prism refracting a stream of live API telemetry into structured signal"
-          fill
-          priority
-          sizes="(max-width: 1024px) 66vw, 62vw"
-          className="object-cover object-center"
-        />
-        {/* Fade the left/bottom edges into the page so copy stays readable */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/20 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+      {/* Live 3D prism centerpiece — bleeds behind the copy, dominant on the right. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-full lg:w-[68%]">
+        <HeroScene />
+        {/* Fade the left edge into the page so copy stays readable */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/30 to-transparent lg:via-transparent" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 pt-20 pb-16 md:pt-28 lg:pb-28">
