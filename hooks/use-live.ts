@@ -1,12 +1,14 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
-import { subscribe, getSnapshot, type LiveState } from '@/lib/live-store'
+import { subscribe, getSnapshot, getInitialSnapshot, type LiveState } from '@/lib/live-store'
 
 // Subscribe to the real-time telemetry engine. Returns the full live state,
-// re-rendering the component on every tick.
+// re-rendering the component on every tick. The server snapshot (and the client's
+// first hydration render) uses a frozen initial snapshot so SSR and client agree;
+// live values take over on the next tick after mount.
 export function useLive(): LiveState {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  return useSyncExternalStore(subscribe, getSnapshot, getInitialSnapshot)
 }
 
 export function formatRelative(ts: number, now: number): string {

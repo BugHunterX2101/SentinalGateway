@@ -119,14 +119,22 @@ function initState(): LiveState {
       mitigations: seedSeries(3, 1),
     },
     anomalies: seedAnomalies.map((a) => ({ ...a })),
-    policies: seedPolicies.map((p) => ({ ...p, load: clamp(p.budget * (0.55 + Math.random() * 0.35), 0, 100) })),
+    policies: seedPolicies.map((p, i) => ({
+      ...p,
+      load: clamp(p.budget * (0.6 + ((i * 7) % 5) * 0.06), 0, 100),
+    })),
     decisionConfidence: 96,
     requestsProtected: 312000,
   }
 }
 
+// Deterministic seed so the server-rendered tick-0 snapshot matches the client's
+// first render (avoids hydration mismatches). The live timer only starts after mount.
 function seedSeries(center: number, spread: number) {
-  return Array.from({ length: SERIES_LEN }, () => clamp(center + (Math.random() - 0.5) * spread, 0, center * 4))
+  return Array.from({ length: SERIES_LEN }, (_, i) => {
+    const wave = Math.sin(i * 0.5) * 0.5 + Math.cos(i * 0.23) * 0.3
+    return clamp(center + wave * spread, 0, center * 4)
+  })
 }
 
 function aggregate(nodes: ServiceNode[]): LiveKpis {
@@ -281,4 +289,11 @@ export function subscribe(listener: () => void) {
 
 export function getSnapshot() {
   return state
+}
+
+// Frozen tick-0 snapshot captured once. Used as the SSR/first-hydration snapshot so
+// the server and client render identically; the live timer only mutates `state`.
+const initialSnapshot = state
+export function getInitialSnapshot() {
+  return initialSnapshot
 }

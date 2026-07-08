@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { type AnomalySignal } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
 import { useLive, formatRelative } from '@/hooks/use-live'
@@ -13,7 +14,14 @@ const severityStyle: Record<AnomalySignal['severity'], { dot: string; badge: str
 
 export function AnomalyFeed() {
   const { anomalies } = useLive()
-  const now = Date.now()
+  // `now` stays null until after mount so SSR and first client render agree; a
+  // ticking clock then keeps the relative timestamps fresh.
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => {
+    setNow(Date.now())
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <div className="glass flex h-full flex-col rounded-2xl p-5">
@@ -55,7 +63,7 @@ export function AnomalyFeed() {
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{a.action}</p>
               <div className="mt-2.5 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span className="tabular-nums">
-                  {formatRelative(a.detectedAt, now)} · {a.confidence}% conf.
+                  {now === null ? 'just now' : formatRelative(a.detectedAt, now)} · {a.confidence}% conf.
                 </span>
                 <Link href="/decisions" className="font-medium text-cyan hover:underline">
                   Explain

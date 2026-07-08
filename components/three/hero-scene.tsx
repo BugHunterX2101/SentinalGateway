@@ -1,7 +1,7 @@
 'use client'
 
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Float, MeshTransmissionMaterial } from '@react-three/drei'
+import { Environment, Float, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useLive } from '@/hooks/use-live'
@@ -127,6 +127,9 @@ function CoralRings({ stress }: { stress: number }) {
   )
 }
 
+// Refraction background: the pearl page colour so the glass reads bright, not black.
+const bgColor = new THREE.Color('#eef3fb')
+
 function Prism() {
   const mesh = useRef<THREE.Mesh>(null)
   useFrame((state) => {
@@ -141,15 +144,16 @@ function Prism() {
         <coneGeometry args={[1, 1.7, 3]} />
         <MeshTransmissionMaterial
           transmission={1}
-          thickness={1.2}
+          thickness={0.6}
           roughness={0.05}
-          ior={1.5}
-          chromaticAberration={0.4}
-          anisotropy={0.3}
-          distortion={0.2}
-          distortionScale={0.3}
-          temporalDistortion={0.1}
-          color={'#eaf6ff'}
+          ior={1.35}
+          chromaticAberration={0.35}
+          anisotropy={0.15}
+          distortion={0.1}
+          distortionScale={0.15}
+          temporalDistortion={0.03}
+          color={'#ffffff'}
+          background={bgColor}
         />
       </mesh>
     </Float>
@@ -169,13 +173,19 @@ export function HeroScene() {
       dpr={[1, 2]}
       style={{ background: 'transparent' }}
     >
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[5, 5, 5]} intensity={1.2} />
-      <directionalLight position={[-5, -2, 2]} intensity={0.5} color={'#22c3e6'} />
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[5, 5, 5]} intensity={1.8} />
+      <directionalLight position={[-5, -2, 2]} intensity={0.7} color={'#22c3e6'} />
+      <pointLight position={[0, 3, 4]} intensity={30} color={'#ffffff'} />
+      <pointLight position={[-3, -3, 3]} intensity={18} color={'#bfe6ff'} />
+      <Environment resolution={128}>
+        <Lightformer form="rect" intensity={2} position={[0, 4, 4]} scale={8} color="#ffffff" />
+        <Lightformer form="rect" intensity={1.4} position={[-4, 0, 3]} scale={6} color="#cfeeffff" />
+        <Lightformer form="circle" intensity={1.2} position={[4, -2, 2]} scale={5} color="#ffd9cf" />
+      </Environment>
       <Prism />
       <ParticleStream intensity={intensity} />
       <CoralRings stress={stress} />
-      <Environment preset="city" />
     </Canvas>
   )
 }

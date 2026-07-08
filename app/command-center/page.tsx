@@ -6,7 +6,7 @@ import { AnomalyFeed } from '@/components/command/anomaly-feed'
 
 export default function CommandCenterPage() {
   return (
-    <main className="min-h-dvh pb-16">
+    <main className="relative z-10 min-h-dvh pb-16">
       <SiteNav />
       <div className="mx-auto max-w-7xl px-4 pt-10">
         <PageHeader

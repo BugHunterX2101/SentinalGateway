@@ -6,7 +6,7 @@ import { CtaFooter } from '@/components/landing/cta-footer'
 
 export default function HomePage() {
   return (
-    <main className="min-h-dvh">
+    <main className="relative z-10 min-h-dvh">
       <SiteNav />
       <HeroSection />
       <FeatureGrid />

@@ -1,7 +1,7 @@
 'use client'
 
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, Float } from '@react-three/drei'
+import { Float } from '@react-three/drei'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useLive } from '@/hooks/use-live'
@@ -95,11 +95,10 @@ export function AmbientScene() {
       dpr={[1, 1.5]}
       style={{ background: 'transparent' }}
     >
-      <ambientLight intensity={0.8} />
-      <directionalLight position={[4, 4, 5]} intensity={0.7} />
+      <ambientLight intensity={1} />
+      <directionalLight position={[4, 4, 5]} intensity={0.9} />
       <Field stress={stress} />
       <Shards />
-      <Environment preset="city" />
     </Canvas>
   )
 }
