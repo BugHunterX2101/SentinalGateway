@@ -219,9 +219,9 @@ function initState(): LiveState {
     kpis: aggregate(nodes),
     series: {
       rps: seedSeries(48.2, 6),
-      latency: seedSeries(132, 40),
-      error: seedSeries(5.1, 3),
-      mitigations: seedSeries(3, 1),
+      latency: seedSeries(97, 22),
+      error: seedSeries(1.66, 0.4),
+      mitigations: seedSeries(2, 0.5),
     },
     anomalies: seedAnomalies.map((a) => ({ ...a })),
     policies: seedPolicies.map((p, i) => ({
@@ -246,7 +246,13 @@ function seedSeries(center: number, spread: number) {
 function aggregate(nodes: ServiceNode[]): LiveKpis {
   const totalRps = nodes.reduce((s, n) => s + n.rps, 0)
   const weightedP99 = nodes.reduce((s, n) => s + n.p99 * n.rps, 0) / totalRps
-  const weightedErr = nodes.reduce((s, n) => s + n.errorRate * n.rps, 0) / totalRps
+
+  // Exclude circuit-open nodes from the headline error rate — their traffic is
+  // already being shed / failed-over, so end-user visible errors stay low.
+  const activeNodes = nodes.filter((n) => n.circuit !== 'open')
+  const activeRps = activeNodes.reduce((s, n) => s + n.rps, 0) || 1
+  const weightedErr = activeNodes.reduce((s, n) => s + n.errorRate * n.rps, 0) / activeRps
+
   const mitigations = nodes.filter((n) => n.circuit !== 'closed').length
   return {
     rps: Math.round(totalRps),
@@ -279,10 +285,10 @@ function step() {
     )
     const errorRate = drift(
       n.errorRate,
-      underIncident ? base.errorRate + 18 * mag : base.errorRate,
-      underIncident ? 4 : 0.4,
+      underIncident ? Math.min(base.errorRate + 8 * mag, 22) : base.errorRate,
+      underIncident ? 1.2 : 0.12,
       0,
-      45,
+      28,
     )
     const health = deriveHealth(errorRate, p99)
     return {
