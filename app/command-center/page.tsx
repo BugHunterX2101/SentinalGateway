@@ -1,5 +1,6 @@
-'use client'
-
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
 import { SiteNav } from '@/components/site-nav'
 import { PageHeader } from '@/components/page-header'
 import { KpiCards } from '@/components/command/kpi-cards'
@@ -8,10 +9,13 @@ import { AnomalyFeed } from '@/components/command/anomaly-feed'
 import { FreezeButton } from '@/components/command/freeze-button'
 import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
-export default function CommandCenterPage() {
+export default async function CommandCenterPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+
   return (
     <main className="relative z-10 min-h-dvh pb-16">
-      <SiteNav />
+      <SiteNav user={session.user} />
       <LiveMetricsBar />
       <div className="mx-auto max-w-7xl px-4 pt-10">
         <PageHeader

@@ -18,7 +18,7 @@ export default async function FlowCanvasPage() {
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">
-      <SiteNav />
+      <SiteNav user={session.user} />
       <LiveMetricsBar />
       <div className="mx-auto max-w-7xl px-4 pt-10">
         <PageHeader

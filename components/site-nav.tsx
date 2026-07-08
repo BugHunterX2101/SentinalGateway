@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SentinelLogo } from './sentinel-logo'
+import { SignOutButton } from './sign-out-button'
 
 const links = [
   { href: '/', label: 'Overview' },
@@ -14,7 +15,11 @@ const links = [
   { href: '/decisions', label: 'Decisions' },
 ]
 
-export function SiteNav() {
+interface SiteNavProps {
+  user?: { name?: string | null; email: string } | null
+}
+
+export function SiteNav({ user }: SiteNavProps = {}) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -59,12 +64,21 @@ export function SiteNav() {
             </span>
             Live
           </span>
-          <Link
-            href="/command-center"
-            className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Launch console
-          </Link>
+          {user ? (
+            <>
+              <span className="rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                {user.name ?? user.email}
+              </span>
+              <SignOutButton />
+            </>
+          ) : (
+            <Link
+              href="/command-center"
+              className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Launch console
+            </Link>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -110,13 +124,17 @@ export function SiteNav() {
               </span>
               Live
             </span>
-            <Link
-              href="/command-center"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Launch console
-            </Link>
+            {user ? (
+              <SignOutButton />
+            ) : (
+              <Link
+                href="/command-center"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Launch console
+              </Link>
+            )}
           </div>
         </div>
       )}
