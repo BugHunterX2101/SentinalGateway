@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { type ShapingPolicy } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
 import { useLive } from '@/hooks/use-live'
+import { updatePolicy } from '@/lib/live-store'
+import { CheckCircle, Loader2 } from 'lucide-react'
 
 const priorityColor: Record<ShapingPolicy['priority'], string> = {
   P0: 'var(--coral)',
@@ -23,6 +25,8 @@ export function FlowBoard() {
   // User-editable capacity budgets overlaid on the live utilization stream.
   const [budgetOverride, setBudgetOverride] = useState<Record<string, number>>({})
   const [activeId, setActiveId] = useState(livePolicies[0].id)
+  const [deployFeedback, setDeployFeedback] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const policies = livePolicies.map((p) => ({
     ...p,
@@ -39,6 +43,23 @@ export function FlowBoard() {
 
   function setBudget(id: string, budget: number) {
     setBudgetOverride((prev) => ({ ...prev, [id]: budget }))
+  }
+
+  function deployPolicyChange() {
+    startTransition(async () => {
+      // Apply to live store immediately for instant UI feedback.
+      updatePolicy(active.id, { budget: active.budget, state: 'active' })
+
+      // Also call REST API so audit log records the change.
+      await fetch(`/api/policies/${active.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget: active.budget, state: 'active' }),
+      }).catch(() => null)
+
+      setDeployFeedback(`Policy "${active.name}" deployed at ${active.budget}% budget.`)
+      setTimeout(() => setDeployFeedback(null), 3000)
+    })
   }
 
   return (
@@ -177,7 +198,19 @@ export function FlowBoard() {
             </div>
           </dl>
 
-          <button className="mt-5 w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90">
+          {deployFeedback && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-card/80 px-3 py-2 text-xs text-foreground">
+              <CheckCircle className="h-3.5 w-3.5 shrink-0 text-cyan" aria-hidden />
+              {deployFeedback}
+            </div>
+          )}
+
+          <button
+            onClick={deployPolicyChange}
+            disabled={isPending}
+            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
             Deploy policy change
           </button>
         </div>

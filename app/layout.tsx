@@ -34,7 +34,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
       <body className="font-sans antialiased">
-        <AmbientScene />
+        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+          <AmbientScene />
+        </div>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
