@@ -1,41 +1,77 @@
 // Real-time Server-Sent Events stream for Sentinel Gateway telemetry.
-// Clients subscribe and receive a JSON-serialised LiveState snapshot on every
-// 1.5-second tick from the shared live-store engine.
+// Merges the in-memory simulation engine (animated KPIs, series) with durable
+// node health/circuit state and policies read from Neon on every tick.
 
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
+import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
 import { subscribe, getSnapshot } from '@/lib/live-store'
+import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: Request) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
-    start(controller) {
-      // Immediately send the current snapshot so the client doesn't wait.
-      const send = () => {
+    async start(controller) {
+      async function send() {
         try {
-          const data = JSON.stringify(getSnapshot())
-          controller.enqueue(encoder.encode(`data: ${data}\n\n`))
+          const [dbNodes, dbPolicies] = await Promise.all([
+            db.select().from(serviceNodes),
+            db.select().from(shapingPolicies),
+          ])
+
+          const simSnapshot = getSnapshot()
+
+          // Apply durable DB overrides (health, circuit, anomalyScore) onto
+          // the simulation snapshot so operator mutations survive page reloads.
+          const mergedNodes = simSnapshot.nodes.map((simNode) => {
+            const dbNode = dbNodes.find((n) => n.id === simNode.id)
+            if (!dbNode) return simNode
+            return {
+              ...simNode,
+              health: dbNode.health as typeof simNode.health,
+              circuit: dbNode.circuit as typeof simNode.circuit,
+              anomalyScore: Number(dbNode.anomalyScore),
+            }
+          })
+
+          const payload = JSON.stringify({
+            ...simSnapshot,
+            nodes: mergedNodes,
+            policies: dbPolicies.map((p) => ({
+              id: p.id,
+              name: p.name,
+              target: p.target,
+              strategy: p.strategy,
+              budget: Number(p.budget),
+              priority: p.priority,
+              state: p.state,
+              load: Number(p.load),
+            })),
+          })
+
+          controller.enqueue(encoder.encode(`data: ${payload}\n\n`))
         } catch {
-          // Client disconnected — the unsubscribe below will clean up.
+          // Transient DB error — skip this tick, do not close the stream.
         }
       }
 
-      send()
-      const unsubscribe = subscribe(() => {
-        send()
-      })
+      // Immediate first send, then follow sim-engine ticks.
+      await send()
+      const unsubscribe = subscribe(() => { send() })
 
-      // Clean up when the connection closes.
-      // ReadableStream cancel is called when the client disconnects.
-      return () => {
+      req.signal.addEventListener('abort', () => {
         unsubscribe()
-      }
-    },
-    cancel() {
-      // Called on client disconnect; ReadableStream already called the cleanup
-      // returned from start(), so nothing extra required here.
+        controller.close()
+      })
     },
   })
 

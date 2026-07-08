@@ -1,12 +1,21 @@
-'use client'
-
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
+import { getPolicies } from '@/app/actions/policies'
 import { SiteNav } from '@/components/site-nav'
 import { PageHeader } from '@/components/page-header'
 import { FlowBoard } from '@/components/flow/flow-board'
 import { NewPolicyModal } from '@/components/flow/new-policy-modal'
 import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
-export default function FlowCanvasPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function FlowCanvasPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+
+  const policies = await getPolicies()
+
   return (
     <main className="relative z-10 min-h-dvh pb-16">
       <SiteNav />
@@ -21,7 +30,7 @@ export default function FlowCanvasPage() {
         </PageHeader>
 
         <div className="mt-8">
-          <FlowBoard />
+          <FlowBoard initialPolicies={policies} />
         </div>
       </div>
     </main>

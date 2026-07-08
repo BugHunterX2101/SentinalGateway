@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { X, Plus, CheckCircle } from 'lucide-react'
-import { createPolicy } from '@/lib/live-store'
+import { createPolicy } from '@/app/actions/policies'
 import { cn } from '@/lib/utils'
 
-const PRIORITIES = ['P0', 'P1', 'P2', 'P3'] as const
+const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const
 const STRATEGIES = [
   'Priority lane + retry budget',
   'Adaptive concurrency limit',
@@ -24,7 +24,7 @@ export function NewPolicyModal() {
     name: '',
     target: '',
     strategy: STRATEGIES[0],
-    priority: 'P1' as (typeof PRIORITIES)[number],
+    priority: 'high' as (typeof PRIORITIES)[number],
     budget: 80,
     description: '',
   })

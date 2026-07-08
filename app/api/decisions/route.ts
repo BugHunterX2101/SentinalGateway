@@ -1,11 +1,16 @@
-// GET  /api/decisions        – list of recent automated decisions with traces
-// POST /api/decisions/[id]/action – approve or roll back a decision
+// GET /api/decisions – list of recent decisions with steps, from Neon
 
-import { getDecisions } from '@/lib/live-store'
+import { getDecisions } from '@/app/actions/decisions'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const decisions = getDecisions()
-  return Response.json({ decisions })
+  try {
+    const decisions = await getDecisions()
+    return Response.json({ decisions })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    if (message === 'Unauthorized') return new Response('Unauthorized', { status: 401 })
+    return Response.json({ error: message }, { status: 500 })
+  }
 }

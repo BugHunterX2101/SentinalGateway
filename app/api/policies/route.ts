@@ -1,13 +1,19 @@
-// GET  /api/policies       – list of adaptive shaping policies with live load
-// POST /api/policies        – create a new policy (persisted in live-store)
+// GET  /api/policies  – list all shaping policies from Neon
+// POST /api/policies  – create a new policy, persisted to Neon
 
-import { getSnapshot, createPolicy } from '@/lib/live-store'
+import { getPolicies, createPolicy } from '@/app/actions/policies'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const { policies } = getSnapshot()
-  return Response.json({ policies })
+  try {
+    const policies = await getPolicies()
+    return Response.json({ policies })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    if (message === 'Unauthorized') return new Response('Unauthorized', { status: 401 })
+    return Response.json({ error: message }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {
@@ -15,21 +21,12 @@ export async function POST(request: Request) {
   if (!body || typeof body !== 'object') {
     return Response.json({ error: 'Invalid body' }, { status: 400 })
   }
-
-  const { name, target, strategy, priority, budget, description } = body as Record<string, unknown>
-
-  if (!name || !target || !strategy || !priority) {
-    return Response.json({ error: 'Missing required fields: name, target, strategy, priority' }, { status: 422 })
+  try {
+    const policy = await createPolicy(body as Parameters<typeof createPolicy>[0])
+    return Response.json({ ok: true, policy }, { status: 201 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    if (message === 'Unauthorized') return new Response('Unauthorized', { status: 401 })
+    return Response.json({ error: message }, { status: 422 })
   }
-
-  const policy = createPolicy({
-    name: String(name),
-    target: String(target),
-    strategy: String(strategy),
-    priority: String(priority) as 'P0' | 'P1' | 'P2' | 'P3',
-    budget: typeof budget === 'number' ? budget : 80,
-    description: description ? String(description) : '',
-  })
-
-  return Response.json({ ok: true, policy }, { status: 201 })
 }

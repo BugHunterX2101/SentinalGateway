@@ -1,42 +1,53 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { type ShapingPolicy } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
 import { useLive } from '@/hooks/use-live'
-import { updatePolicy } from '@/lib/live-store'
+import { updatePolicy } from '@/app/actions/policies'
 import { CheckCircle, Loader2 } from 'lucide-react'
+import type { getPolicies } from '@/app/actions/policies'
 
-const priorityColor: Record<ShapingPolicy['priority'], string> = {
-  P0: 'var(--coral)',
-  P1: 'var(--amber)',
-  P2: 'var(--cyan)',
-  P3: 'var(--indigo)',
+type DbPolicy = Awaited<ReturnType<typeof getPolicies>>[number]
+
+const priorityColor: Record<string, string> = {
+  critical: 'var(--coral)',
+  high:     'var(--amber)',
+  medium:   'var(--cyan)',
+  low:      'var(--indigo)',
 }
 
-const stateStyle: Record<ShapingPolicy['state'], string> = {
-  active: 'bg-accent text-accent-foreground',
-  standby: 'bg-secondary text-muted-foreground',
+const stateStyle: Record<string, string> = {
+  active:   'bg-accent text-accent-foreground',
   learning: 'bg-amber/15 text-tangerine',
+  paused:   'bg-secondary text-muted-foreground',
 }
 
-export function FlowBoard() {
+interface Props {
+  initialPolicies: DbPolicy[]
+}
+
+export function FlowBoard({ initialPolicies }: Props) {
+  // Live SSE stream keeps load percentages up to date; merge with DB policies.
   const { policies: livePolicies } = useLive()
-  // User-editable capacity budgets overlaid on the live utilization stream.
   const [budgetOverride, setBudgetOverride] = useState<Record<string, number>>({})
-  const [activeId, setActiveId] = useState(livePolicies[0].id)
+  const [activeId, setActiveId] = useState(initialPolicies[0]?.id ?? '')
   const [deployFeedback, setDeployFeedback] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const policies = livePolicies.map((p) => ({
-    ...p,
-    budget: budgetOverride[p.id] ?? p.budget,
-  }))
+  // Merge: DB gives authoritative state/budget; live SSE gives current load %.
+  const policies = initialPolicies.map((p) => {
+    const live = livePolicies.find((l) => l.id === p.id)
+    return {
+      ...p,
+      budget: budgetOverride[p.id] ?? Number(p.budget),
+      load: live?.load ?? 0,
+    }
+  })
 
   const active = policies.find((p) => p.id === activeId) ?? policies[0]
+  if (!active) return null
 
-  // Live cluster utilization = mean live load across enforcing lanes.
-  const enforcing = policies.filter((p) => p.state !== 'standby')
+  const enforcing = policies.filter((p) => p.state !== 'paused')
   const utilization = Math.round(
     enforcing.reduce((s, p) => s + p.load, 0) / Math.max(1, enforcing.length),
   )
@@ -47,28 +58,24 @@ export function FlowBoard() {
 
   function deployPolicyChange() {
     startTransition(async () => {
-      // Apply to live store immediately for instant UI feedback.
-      updatePolicy(active.id, { budget: active.budget, state: 'active' })
-
-      // Also call REST API so audit log records the change.
-      await fetch(`/api/policies/${active.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget: active.budget, state: 'active' }),
-      }).catch(() => null)
-
-      setDeployFeedback(`Policy "${active.name}" deployed at ${active.budget}% budget.`)
-      setTimeout(() => setDeployFeedback(null), 3000)
+      try {
+        await updatePolicy(active.id, { budget: active.budget, state: 'active' })
+        setDeployFeedback(`Policy "${active.name}" deployed at ${active.budget}% budget.`)
+      } catch {
+        setDeployFeedback('Deploy failed — please retry.')
+      }
+      setTimeout(() => setDeployFeedback(null), 4000)
     })
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+      {/* Policy list */}
       <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Shaping policies</h2>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
+            <span className="h-1.5 w-1.5 animate-sentinel-pulse rounded-full bg-cyan" />
             {policies.length} lanes · live load
           </span>
         </div>
@@ -77,6 +84,7 @@ export function FlowBoard() {
           {policies.map((p) => {
             const selected = p.id === activeId
             const over = p.load > p.budget
+            const color = priorityColor[p.priority] ?? 'var(--cyan)'
             return (
               <li key={p.id}>
                 <button
@@ -89,14 +97,19 @@ export function FlowBoard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span
-                        className="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground"
-                        style={{ backgroundColor: priorityColor[p.priority] }}
+                        className="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase text-white"
+                        style={{ backgroundColor: color }}
                       >
                         {p.priority}
                       </span>
                       <span className="text-sm font-medium text-foreground">{p.name}</span>
                     </div>
-                    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium capitalize', stateStyle[p.state])}>
+                    <span
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-[11px] font-medium capitalize',
+                        stateStyle[p.state] ?? stateStyle.paused,
+                      )}
+                    >
                       {p.state}
                     </span>
                   </div>
@@ -105,15 +118,13 @@ export function FlowBoard() {
                   </p>
                   <div className="mt-3 flex items-center gap-3">
                     <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-secondary">
-                      {/* live load fill */}
                       <div
                         className="h-full rounded-full transition-all duration-700"
                         style={{
                           width: `${Math.min(100, p.load)}%`,
-                          backgroundColor: over ? 'var(--coral)' : priorityColor[p.priority],
+                          backgroundColor: over ? 'var(--coral)' : color,
                         }}
                       />
-                      {/* budget cap marker */}
                       <span
                         className="absolute top-1/2 h-3.5 w-0.5 -translate-y-1/2 bg-foreground/50"
                         style={{ left: `${Math.min(100, p.budget)}%` }}
@@ -131,13 +142,16 @@ export function FlowBoard() {
         </ul>
       </div>
 
+      {/* Policy editor */}
       <aside className="flex flex-col gap-4">
         <div className="glass rounded-2xl p-5">
           <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
+            <span className="h-1.5 w-1.5 animate-sentinel-pulse rounded-full bg-cyan" />
             Cluster capacity · live
           </p>
-          <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">{utilization}%</p>
+          <p className="mt-1 font-mono text-3xl font-semibold tabular-nums text-foreground">
+            {utilization}%
+          </p>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary">
             <div
               className={cn(
@@ -149,7 +163,7 @@ export function FlowBoard() {
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {utilization > 90
-              ? 'Near saturation — Sentinel will begin shedding P3 traffic.'
+              ? 'Near saturation — Sentinel will begin shedding low-priority traffic.'
               : 'Headroom available for priority bursts.'}
           </p>
         </div>
@@ -158,21 +172,25 @@ export function FlowBoard() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">{active.name}</h3>
             <span
-              className="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground"
-              style={{ backgroundColor: priorityColor[active.priority] }}
+              className="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase text-white"
+              style={{ backgroundColor: priorityColor[active.priority] ?? 'var(--cyan)' }}
             >
               {active.priority}
             </span>
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{active.description}</p>
 
           <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-card/60 px-3 py-2">
             <span className="text-xs text-muted-foreground">Live utilization</span>
-            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{active.load}%</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {active.load}%
+            </span>
           </div>
 
           <div className="mt-4">
-            <label htmlFor="budget" className="flex items-center justify-between text-xs font-medium text-foreground">
+            <label
+              htmlFor="budget"
+              className="flex items-center justify-between text-xs font-medium text-foreground"
+            >
               <span>Capacity budget</span>
               <span className="font-mono text-cyan">{active.budget}%</span>
             </label>

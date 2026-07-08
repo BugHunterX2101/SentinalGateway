@@ -1,5 +1,7 @@
-'use client'
-
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { auth } from '@/lib/auth'
+import { getDecisions } from '@/app/actions/decisions'
 import { SiteNav } from '@/components/site-nav'
 import { PageHeader } from '@/components/page-header'
 import { DecisionTrace } from '@/components/decisions/decision-trace'
@@ -7,7 +9,15 @@ import { DecisionSummary } from '@/components/decisions/decision-summary'
 import { ExportAuditButton } from '@/components/decisions/export-audit-button'
 import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
-export default function DecisionsPage() {
+export const dynamic = 'force-dynamic'
+
+export default async function DecisionsPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect('/sign-in')
+
+  const decisions = await getDecisions()
+  const latest = decisions[0] ?? null
+
   return (
     <main className="relative z-10 min-h-dvh pb-16">
       <SiteNav />
@@ -22,8 +32,8 @@ export default function DecisionsPage() {
         </PageHeader>
 
         <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_360px]">
-          <DecisionTrace />
-          <DecisionSummary />
+          <DecisionTrace decision={latest} />
+          <DecisionSummary decision={latest} />
         </div>
       </div>
     </main>

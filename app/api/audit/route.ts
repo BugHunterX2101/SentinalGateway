@@ -1,37 +1,42 @@
-// GET /api/audit  – returns the full audit log as a downloadable JSON or CSV.
+// GET /api/audit  – returns the durable audit log from Neon.
 // Accept: application/json  → JSON array
-// Accept: text/csv          → CSV export
+// Accept: text/csv          → CSV download
 
-import { getAuditLog } from '@/lib/live-store'
+import { getAuditLog } from '@/app/actions/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-  const accept = request.headers.get('accept') ?? ''
-  const log = getAuditLog()
+  try {
+    const log = await getAuditLog(200)
+    const accept = request.headers.get('accept') ?? ''
 
-  if (accept.includes('text/csv')) {
-    const header = 'timestamp,type,actor,subject,detail\n'
-    const rows = log
-      .map(
-        (e) =>
+    if (accept.includes('text/csv')) {
+      const header = 'timestamp,type,actor,subject,detail\n'
+      const rows = log
+        .map((e) =>
           [
-            new Date(e.timestamp).toISOString(),
+            e.createdAt instanceof Date ? e.createdAt.toISOString() : String(e.createdAt),
             e.type,
             e.actor,
             e.subject,
             `"${e.detail.replace(/"/g, '""')}"`,
           ].join(','),
-      )
-      .join('\n')
+        )
+        .join('\n')
 
-    return new Response(header + rows, {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="sentinel-audit.csv"',
-      },
-    })
+      return new Response(header + rows, {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="sentinel-audit.csv"',
+        },
+      })
+    }
+
+    return Response.json({ log })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    if (message === 'Unauthorized') return new Response('Unauthorized', { status: 401 })
+    return Response.json({ error: message }, { status: 500 })
   }
-
-  return Response.json({ log })
 }
