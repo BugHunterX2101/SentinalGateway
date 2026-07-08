@@ -57,7 +57,7 @@ export function NewPolicyModal() {
       setTimeout(() => {
         setSaved(false)
         setOpen(false)
-        setForm({ name: '', target: '', strategy: STRATEGIES[0], priority: 'P1', budget: 80, description: '' })
+        setForm({ name: '', target: '', strategy: STRATEGIES[0], priority: 'high', budget: 80, description: '' })
       }, 1500)
     })
   }

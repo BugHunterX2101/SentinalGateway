@@ -17,6 +17,8 @@ export const auth = betterAuth({
   trustedOrigins: [
     // v0 preview iframe origin — MUST be first and always present in dev
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),
+    // v0 preview VMs use *.vusercontent.net — allow all subdomains
+    'https://*.vusercontent.net',
     // Vercel preview deployment
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
     // Vercel production deployment
