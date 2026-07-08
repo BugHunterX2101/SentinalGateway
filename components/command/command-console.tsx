@@ -1,0 +1,128 @@
+'use client'
+
+import { useState } from 'react'
+import { NervousSystemMap } from '@/components/nervous-system-map'
+import { serviceNodes, type ServiceNode, type CircuitState } from '@/lib/sentinel-data'
+import { cn } from '@/lib/utils'
+
+const circuitStyle: Record<CircuitState, { label: string; className: string }> = {
+  closed: { label: 'Circuit closed', className: 'bg-accent text-accent-foreground' },
+  'half-open': { label: 'Half-open · probing', className: 'bg-amber/15 text-tangerine' },
+  open: { label: 'Circuit open', className: 'bg-coral/10 text-coral' },
+}
+
+const healthLabel: Record<ServiceNode['health'], string> = {
+  healthy: 'Healthy',
+  degraded: 'Degraded',
+  critical: 'Critical',
+  quarantined: 'Quarantined',
+}
+
+export function CommandConsole() {
+  const [selected, setSelected] = useState<ServiceNode>(
+    serviceNodes.find((n) => n.health === 'critical') ?? serviceNodes[0],
+  )
+  const circuit = circuitStyle[selected.circuit]
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+      <div className="glass overflow-hidden rounded-2xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Nervous System Map</h2>
+            <p className="text-xs text-muted-foreground">Select a node to inspect its vitals</p>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <Legend color="bg-cyan" label="Healthy" />
+            <Legend color="bg-amber" label="Degraded" />
+            <Legend color="bg-coral" label="Critical" />
+          </div>
+        </div>
+        <div className="h-[440px] w-full p-2">
+          <NervousSystemMap onSelect={setSelected} selectedId={selected.id} />
+        </div>
+      </div>
+
+      <aside className="glass flex flex-col rounded-2xl p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Inspecting</p>
+            <h3 className="mt-0.5 text-xl font-semibold text-foreground">{selected.name}</h3>
+            <p className="text-xs text-muted-foreground">{selected.group}</p>
+          </div>
+          <span
+            className={cn(
+              'rounded-full px-2.5 py-1 text-[11px] font-medium',
+              selected.health === 'healthy'
+                ? 'bg-accent text-accent-foreground'
+                : selected.health === 'degraded'
+                  ? 'bg-amber/15 text-tangerine'
+                  : 'bg-coral/10 text-coral',
+            )}
+          >
+            {healthLabel[selected.health]}
+          </span>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <Stat label="Throughput" value={`${(selected.rps / 1000).toFixed(1)}k`} unit="rps" />
+          <Stat label="p99 latency" value={`${selected.p99}`} unit="ms" />
+          <Stat label="Error rate" value={`${selected.errorRate}`} unit="%" />
+          <Stat label="Anomaly score" value={`${selected.anomalyScore}`} unit="/100" />
+        </div>
+
+        <div className="mt-5">
+          <div className={cn('inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium', circuit.className)}>
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {circuit.label}
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-border bg-card/60 p-4">
+          <p className="text-xs font-medium text-foreground">Sentinel recommendation</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            {recommendation(selected)}
+          </p>
+        </div>
+
+        <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+          <button className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90">
+            Apply mitigation
+          </button>
+          <button className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary">
+            Snooze 1h
+          </button>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
+function recommendation(node: ServiceNode) {
+  if (node.circuit === 'open')
+    return 'Circuit is open and traffic is buffered. Half-open probe scheduled — no action needed unless recovery stalls past 2 minutes.'
+  if (node.health === 'degraded')
+    return 'Latency is drifting above SLO. Adaptive shaping is shedding low-priority traffic; consider scaling the pool if the trend continues.'
+  return 'Operating within learned baselines. Sentinel is observing and will intervene automatically if signals cross threshold.'
+}
+
+function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card/60 p-3">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-lg font-semibold text-foreground">
+        {value}
+        <span className="ml-1 text-xs font-normal text-muted-foreground">{unit}</span>
+      </p>
+    </div>
+  )
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={cn('h-2 w-2 rounded-full', color)} />
+      {label}
+    </span>
+  )
+}
