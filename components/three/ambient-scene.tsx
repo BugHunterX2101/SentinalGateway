@@ -7,6 +7,11 @@ import * as THREE from 'three'
 import { useLive } from '@/hooks/use-live'
 
 const COUNT = 420
+// Half-width large enough to span the full visible area at camera distance 12,
+// FOV 50. Particles start off-screen on the left and wrap back from the right,
+// so they always travel a full page-width before reappearing — never cutting off
+// abruptly in the middle.
+const HALF_W = 18
 
 function Field({ stress }: { stress: number }) {
   const ref = useRef<THREE.Points>(null)
@@ -14,7 +19,7 @@ function Field({ stress }: { stress: number }) {
     const positions = new Float32Array(COUNT * 3)
     const velocities = new Float32Array(COUNT)
     for (let i = 0; i < COUNT; i++) {
-      positions[i * 3 + 0] = (Math.random() - 0.5) * 26
+      positions[i * 3 + 0] = (Math.random() - 0.5) * HALF_W * 2
       positions[i * 3 + 1] = (Math.random() - 0.5) * 16
       positions[i * 3 + 2] = (Math.random() - 0.5) * 10
       velocities[i] = 0.1 + Math.random() * 0.4
@@ -29,7 +34,9 @@ function Field({ stress }: { stress: number }) {
     const dt = Math.min(delta, 0.05)
     for (let i = 0; i < COUNT; i++) {
       arr[i * 3 + 0] += dt * velocities[i] * (0.5 + stress)
-      if (arr[i * 3 + 0] > 13) arr[i * 3 + 0] = -13
+      // Wrap at the far edge so the particle re-enters from the opposite edge,
+      // travelling the full width without popping in the middle of the screen.
+      if (arr[i * 3 + 0] > HALF_W) arr[i * 3 + 0] = -HALF_W
     }
     ;(pts.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
   })
