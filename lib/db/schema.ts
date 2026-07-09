@@ -106,13 +106,13 @@ export const decisions = pgTable('decisions', {
 
 export const decisionSteps = pgTable('decision_steps', {
   id: serial('id').primaryKey(),
-  decisionId: text('decision_id').notNull(),
-  stepIndex: integer('step_index').notNull(),
+  decisionId: text('decisionId').notNull(),
+  stepIndex: integer('stepIndex').notNull(),
   phase: text('phase').notNull(),
   label: text('label').notNull(),
   detail: text('detail').notNull(),
   confidence: numeric('confidence').notNull().default('0'),
-  deltaMs: integer('delta_ms').notNull().default(0),
+  deltaMs: integer('deltaMs').notNull().default(0),
 })
 
 export const auditLog = pgTable('audit_log', {

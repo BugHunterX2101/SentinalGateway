@@ -41,9 +41,9 @@ export function HeroSection() {
   ]
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative">
       {/* 3D centerpiece — bleeds behind the copy, dominant on the right */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-full lg:w-[68%]">
+      <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-full lg:w-[80%]">
         <HeroScene />
       </div>
 

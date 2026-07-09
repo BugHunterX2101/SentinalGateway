@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
-import { useLive } from '@/hooks/use-live'
+import { useLiveWithDb } from '@/hooks/use-live'
 import { updatePolicy } from '@/app/actions/policies'
 import { CheckCircle, Loader2 } from 'lucide-react'
 import type { getPolicies } from '@/app/actions/policies'
@@ -28,7 +28,7 @@ interface Props {
 
 export function FlowBoard({ initialPolicies }: Props) {
   // Live SSE stream keeps load percentages up to date; merge with DB policies.
-  const { policies: livePolicies } = useLive()
+  const { policies: livePolicies } = useLiveWithDb()
   const [budgetOverride, setBudgetOverride] = useState<Record<string, number>>({})
   const [activeId, setActiveId] = useState(initialPolicies[0]?.id ?? '')
   const [deployFeedback, setDeployFeedback] = useState<string | null>(null)

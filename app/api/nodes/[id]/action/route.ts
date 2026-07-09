@@ -1,10 +1,9 @@
 // POST /api/nodes/[id]/action
 // Body: { action: 'mitigate' | 'snooze' | 'reset' }
-// Persists the operator action to Neon via the server action, then also
-// applies it to the in-memory sim engine so the SSE stream reflects it immediately.
+// Persists the operator action to Neon. The SSE stream will reflect the
+// updated node state on the next DB tick.
 
 import { applyNodeAction } from '@/app/actions/nodes'
-import { applyNodeAction as simApply } from '@/lib/live-store'
 
 export async function POST(
   request: Request,
@@ -20,12 +19,7 @@ export async function POST(
   }
 
   try {
-    // Persist to Neon (auth-checked inside the action)
     const updated = await applyNodeAction(id, { action: action as (typeof valid)[number] })
-
-    // Also apply to the sim engine so the live SSE stream reflects it instantly
-    simApply(id, action as (typeof valid)[number])
-
     return Response.json({ ok: true, node: updated })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
