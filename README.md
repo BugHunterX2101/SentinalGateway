@@ -295,26 +295,26 @@ BETTER_AUTH_SECRET=<32+ character random string>
 
 ### Database Setup
 
-The 9 required tables are defined in `lib/db/schema.ts`. Create them by running the following SQL against your Neon database (or use the Neon console / Neon MCP):
+All 9 tables must be created with raw SQL against your Neon database. Do **not** use `drizzle-kit push` — Better Auth requires exact camelCase column names that drizzle-kit would not generate correctly.
 
-**Better Auth tables** (must be created first):
+The recommended approach is to run each `CREATE TABLE` statement from `lib/db/schema.ts` directly in the Neon SQL editor or via `psql`:
+
 ```sql
--- user, session, account, verification
--- Run the DDL from lib/db/schema.ts or use: npx better-auth migrate
+-- 1. Better Auth tables (run in order — session/account reference user)
+CREATE TABLE IF NOT EXISTS "user" ( ... );
+CREATE TABLE IF NOT EXISTS "session" ( ... );
+CREATE TABLE IF NOT EXISTS "account" ( ... );
+CREATE TABLE IF NOT EXISTS "verification" ( ... );
+
+-- 2. App tables
+CREATE TABLE IF NOT EXISTS "service_nodes" ( ... );
+CREATE TABLE IF NOT EXISTS "shaping_policies" ( ... );
+CREATE TABLE IF NOT EXISTS "decisions" ( ... );
+CREATE TABLE IF NOT EXISTS "decision_steps" ( ... );
+CREATE TABLE IF NOT EXISTS "audit_log" ( ... );
 ```
 
-**App tables** (`service_nodes`, `shaping_policies`, `decisions`, `decision_steps`, `audit_log`):
-```sql
--- All DDL is in lib/db/schema.ts
--- Use drizzle-kit to push: pnpm exec drizzle-kit push
-```
-
-After pushing the schema, seed initial gateway topology:
-```bash
-# Optional: seed the service_nodes and shaping_policies tables
-# with the 8-node topology and 5 default policies used in production.
-# See lib/sentinel-data.ts for the seed values.
-```
+The full `CREATE TABLE` statements are in `lib/db/schema.ts`. After creating the tables, seed the initial 8-node topology and 5 default shaping policies — the seed values match the static data in `lib/sentinel-data.ts`.
 
 ### Install and Run
 
