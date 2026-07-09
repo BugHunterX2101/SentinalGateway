@@ -1,19 +1,18 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { LogOut } from 'lucide-react'
 
 export function SignOutButton() {
-  const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   function handleSignOut() {
     startTransition(async () => {
       await authClient.signOut()
-      router.push('/sign-in')
-      router.refresh()
+      // Hard redirect so the cleared session cookie is reflected on the
+      // very next server request — same reason as AuthForm.
+      window.location.href = '/sign-in'
     })
   }
 
