@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { ShieldCheck, Loader2 } from 'lucide-react'
 
@@ -11,6 +12,7 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps) {
+  const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,17 +32,20 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
         const result = await authClient.signIn.email({ email, password })
         if (result.error) throw new Error(result.error.message)
       }
-      // Use a hard redirect so the browser sends the new session cookie with
-      // the next request — router.push alone can navigate before the cookie
-      // is committed, causing the server session check to fail and redirect
-      // back to sign-in.
-      window.location.href = redirectTo
+
+      // Give the browser a tick to commit the Set-Cookie header, then do a
+      // full hard-navigation so the server RSC re-runs auth.api.getSession()
+      // with the freshly written cookie. router.push() alone can race the
+      // cookie write in cross-site iframe environments (v0 preview, Vercel
+      // preview deployments).
+      await new Promise((r) => setTimeout(r, 100))
+      router.refresh()
+      router.push(redirectTo)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
-    // Do NOT run setLoading(false) on success — keep the spinner while the
-    // hard redirect is in flight so the button stays visually disabled.
+    // Keep spinner alive while navigation is in flight.
   }
 
   return (

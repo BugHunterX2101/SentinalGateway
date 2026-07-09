@@ -6,14 +6,20 @@ const PROTECTED = ['/command-center', '/flow-canvas', '/decisions']
 // Routes only for unauthenticated users (redirect to app if already signed in)
 const AUTH_ROUTES = ['/sign-in', '/sign-up']
 
-// better-auth stores the session in a cookie named "better-auth.session_token"
-// We do a lightweight cookie presence check here — the full session validation
-// still happens in each page's server component via auth.api.getSession().
+// better-auth stores the session in a cookie. The exact name depends on the
+// environment:
+//   - __Secure-better-auth.session_token  (HTTPS / useSecureCookies: true)
+//   - better-auth.session_token           (HTTP / useSecureCookies: false)
+// We check both so the middleware works in every environment.
+// NOTE: this is a lightweight presence-only check — full validation still
+// happens server-side in each page via auth.api.getSession().
 function hasSessionCookie(req: NextRequest): boolean {
-  return (
-    req.cookies.has('better-auth.session_token') ||
-    req.cookies.has('__Secure-better-auth.session_token')
-  )
+  const names = [
+    'better-auth.session_token',
+    '__Secure-better-auth.session_token',
+    '__Host-better-auth.session_token',
+  ]
+  return names.some((name) => req.cookies.has(name))
 }
 
 export function middleware(req: NextRequest) {
