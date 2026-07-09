@@ -18,6 +18,7 @@ const STRATEGIES = [
 export function NewPolicyModal() {
   const [open, setOpen] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const [form, setForm] = useState({
@@ -33,32 +34,32 @@ export function NewPolicyModal() {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function handleClose() {
+    if (isPending) return
+    setOpen(false)
+    setSaved(false)
+    setError(null)
+    setForm({ name: '', target: '', strategy: STRATEGIES[0], priority: 'high', budget: 80, description: '' })
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
     startTransition(async () => {
-      // Use live-store directly (same process) for instant reflection in UI,
-      // and also POST to the REST API so external consumers see it.
-      createPolicy({
-        name: form.name,
-        target: form.target,
-        strategy: form.strategy,
-        priority: form.priority,
-        budget: form.budget,
-        description: form.description,
-      })
-
-      await fetch('/api/policies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      }).catch(() => null)
-
-      setSaved(true)
-      setTimeout(() => {
-        setSaved(false)
-        setOpen(false)
-        setForm({ name: '', target: '', strategy: STRATEGIES[0], priority: 'high', budget: 80, description: '' })
-      }, 1500)
+      try {
+        await createPolicy({
+          name: form.name,
+          target: form.target,
+          strategy: form.strategy,
+          priority: form.priority,
+          budget: form.budget,
+          description: form.description,
+        })
+        setSaved(true)
+        setTimeout(() => handleClose(), 1500)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create policy')
+      }
     })
   }
 
@@ -82,7 +83,7 @@ export function NewPolicyModal() {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-foreground/10 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
+            onClick={handleClose}
             aria-hidden
           />
 
@@ -93,7 +94,7 @@ export function NewPolicyModal() {
                 New shaping policy
               </h2>
               <button
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 aria-label="Close"
               >
@@ -147,14 +148,14 @@ export function NewPolicyModal() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Priority">
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       {PRIORITIES.map((p) => (
                         <button
                           key={p}
                           type="button"
                           onClick={() => handleChange('priority', p)}
                           className={cn(
-                            'flex-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors',
+                            'flex-1 rounded-lg border px-1.5 py-1.5 text-xs font-semibold transition-colors',
                             form.priority === p
                               ? 'border-primary bg-primary text-primary-foreground'
                               : 'border-border bg-card text-muted-foreground hover:bg-secondary',
@@ -188,12 +189,18 @@ export function NewPolicyModal() {
                   />
                 </Field>
 
+                {error && (
+                  <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                    {error}
+                  </p>
+                )}
+
                 <button
                   type="submit"
                   disabled={isPending}
                   className="mt-1 w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
-                  {isPending ? 'Creating…' : 'Create policy'}
+                  {isPending ? 'Creating...' : 'Create policy'}
                 </button>
               </form>
             )}

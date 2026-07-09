@@ -18,16 +18,16 @@ const NodeActionSchema = z.object({
   action: z.enum(['mitigate', 'snooze', 'reset']),
 })
 
-// Default baselines used for 'reset' action
+// Default baselines used for the 'reset' action — keyed by node id.
 const BASELINES: Record<string, { rps: string; p99: string; errorRate: string }> = {
-  gateway:   { rps: '131600', p99: '12',  errorRate: '0.4'  },
-  auth:      { rps: '28400',  p99: '18',  errorRate: '0.2'  },
+  edge:      { rps: '48200',  p99: '34',  errorRate: '0.12' },
+  authz:     { rps: '22400',  p99: '41',  errorRate: '0.21' },
+  catalog:   { rps: '18900',  p99: '58',  errorRate: '0.4'  },
+  search:    { rps: '15600',  p99: '60',  errorRate: '0.5'  },
+  cart:      { rps: '9800',   p99: '62',  errorRate: '0.6'  },
   payments:  { rps: '9200',   p99: '48',  errorRate: '0.4'  },
-  search:    { rps: '44100',  p99: '55',  errorRate: '0.5'  },
-  inventory: { rps: '19800',  p99: '31',  errorRate: '0.3'  },
-  notify:    { rps: '7600',   p99: '22',  errorRate: '0.1'  },
-  cdn:       { rps: '210000', p99: '4',   errorRate: '0.05' },
-  ml:        { rps: '3100',   p99: '90',  errorRate: '0.5'  },
+  inventory: { rps: '7100',   p99: '31',  errorRate: '0.3'  },
+  notify:    { rps: '5400',   p99: '22',  errorRate: '0.1'  },
 }
 
 export async function getNodes() {

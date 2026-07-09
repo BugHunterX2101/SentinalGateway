@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { NervousSystemMap } from '@/components/nervous-system-map'
 import { type ServiceNode, type CircuitState } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
-import { useLive } from '@/hooks/use-live'
+import { useLiveWithDb } from '@/hooks/use-live'
 import { CheckCircle, Loader2 } from 'lucide-react'
 
 const circuitStyle: Record<CircuitState, { label: string; className: string }> = {
@@ -21,7 +21,7 @@ const healthLabel: Record<ServiceNode['health'], string> = {
 }
 
 export function CommandConsole() {
-  const { nodes } = useLive()
+  const { nodes } = useLiveWithDb()
   const [selectedId, setSelectedId] = useState<string>(
     () => (nodes.find((n) => n.health === 'critical') ?? nodes[0]).id,
   )

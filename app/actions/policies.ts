@@ -17,14 +17,15 @@ async function getSession() {
 const PolicyCreateSchema = z.object({
   name: z.string().min(1).max(100),
   target: z.string().min(1),
-  strategy: z.enum(['circuit-breaker', 'adaptive-shedding', 'rate-limiting', 'backpressure']),
+  strategy: z.string().min(1),
   budget: z.number().min(0).max(100),
   priority: z.enum(['critical', 'high', 'medium', 'low']),
+  description: z.string().optional().default(''),
 })
 
 const PolicyUpdateSchema = z.object({
   budget: z.number().min(0).max(100).optional(),
-  state: z.enum(['learning', 'active', 'paused']).optional(),
+  state: z.enum(['learning', 'active', 'standby', 'paused']).optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
 })
 
@@ -39,7 +40,17 @@ export async function createPolicy(input: z.infer<typeof PolicyCreateSchema>) {
   const id = `pol-${Date.now().toString(36)}`
   const [policy] = await db
     .insert(shapingPolicies)
-    .values({ ...data, id, budget: data.budget.toString(), load: '0', createdBy: session.user.id })
+    .values({
+      id,
+      name: data.name,
+      target: data.target,
+      strategy: data.strategy,
+      budget: data.budget.toString(),
+      priority: data.priority,
+      state: 'learning',
+      load: '0',
+      createdBy: session.user.id,
+    })
     .returning()
 
   await db.insert(auditLog).values({
