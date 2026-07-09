@@ -335,6 +335,19 @@ pnpm build
 pnpm start
 ```
 
+### Deploying to Vercel
+
+1. Push to `main` — Vercel auto-deploys on every push.
+2. Add the following environment variables in the Vercel project settings:
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Your Neon connection string (pooled) |
+| `BETTER_AUTH_SECRET` | Output of `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | Your production URL e.g. `https://sentinalgateway.vercel.app` |
+
+`BETTER_AUTH_URL` is optional when deployed to Vercel — the auth config automatically falls back to `VERCEL_PROJECT_PRODUCTION_URL`. Set it only if you use a custom domain.
+
 ---
 
 ## Design System
