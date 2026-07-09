@@ -26,8 +26,8 @@ function useDotTexture() {
 }
 
 const COUNT = 900
-const START = new THREE.Vector3(-9, -4.2, -2.2)
-const END = new THREE.Vector3(9, 4.2, 2.2)
+const START = new THREE.Vector3(-7, -3.5, -2.0)
+const END = new THREE.Vector3(7, 3.5, 2.0)
 
 // A stream of particles flowing diagonally through the prism: tight beam at the
 // centre (where the prism refracts it) and dispersing into a cloud at each end.
@@ -57,7 +57,7 @@ function ParticleStream({ intensity }: { intensity: number }) {
       if (t > 1) t -= 1
       seeds[i * 4 + 0] = t
       // narrow through the middle, wide at the ends
-      const spread = 0.25 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 3.2
+      const spread = 0.2 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 2.4
       const x = START.x + (END.x - START.x) * t
       const y = START.y + (END.y - START.y) * t
       const z = START.z + (END.z - START.z) * t
