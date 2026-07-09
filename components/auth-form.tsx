@@ -1,17 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
 import { ShieldCheck, Loader2 } from 'lucide-react'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
+  redirectTo?: string
 }
 
-export function AuthForm({ mode }: AuthFormProps) {
-  const router = useRouter()
+export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,13 +30,17 @@ export function AuthForm({ mode }: AuthFormProps) {
         const result = await authClient.signIn.email({ email, password })
         if (result.error) throw new Error(result.error.message)
       }
-      router.push('/command-center')
-      router.refresh()
+      // Use a hard redirect so the browser sends the new session cookie with
+      // the next request — router.push alone can navigate before the cookie
+      // is committed, causing the server session check to fail and redirect
+      // back to sign-in.
+      window.location.href = redirectTo
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
       setLoading(false)
     }
+    // Do NOT run setLoading(false) on success — keep the spinner while the
+    // hard redirect is in flight so the button stays visually disabled.
   }
 
   return (
