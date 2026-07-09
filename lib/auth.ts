@@ -34,7 +34,10 @@ export const auth = betterAuth({
     ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
       : []),
+    // Trust all preview and production deployments for this project
     'https://sentinalgateway.vercel.app',
+    'https://sentinalgateway-ochre.vercel.app',
+    'https://*.sentinalgateway*.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
   ],
