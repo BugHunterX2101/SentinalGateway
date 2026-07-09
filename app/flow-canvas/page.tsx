@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/session'
 import { getPolicies } from '@/app/actions/policies'
 import { SiteNav } from '@/components/site-nav'
 import { PageHeader } from '@/components/page-header'
@@ -11,14 +10,14 @@ import { LiveMetricsBar } from '@/components/live-metrics-bar'
 export const dynamic = 'force-dynamic'
 
 export default async function FlowCanvasPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
+  const user = await getCurrentUser()
+  if (!user) redirect('/sign-in')
 
   const policies = await getPolicies()
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">
-      <SiteNav user={session.user} />
+      <SiteNav user={user} />
       <LiveMetricsBar />
       <div className="mx-auto max-w-7xl px-4 pt-10">
         <PageHeader

@@ -22,7 +22,7 @@ const accentText: Record<Accent, string> = {
 export function FeatureGrid() {
   const { nodes, policies, decisionConfidence } = useLive()
 
-  const peakAnomaly = Math.max(...nodes.map((n) => n.anomalyScore))
+  const peakAnomaly = Math.max(0, ...nodes.map((n) => n.anomalyScore))
   const shaping = policies.filter((p) => p.state === 'active').length
   const openCircuits = nodes.filter((n) => n.circuit !== 'closed').length
 

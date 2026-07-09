@@ -14,7 +14,9 @@ const isPreviewOrDev =
   !process.env.VERCEL_PROJECT_PRODUCTION_URL
 
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET ?? 'build-time-placeholder-not-used',
+  secret:
+    process.env.BETTER_AUTH_SECRET ??
+    'local-build-placeholder-secret-32-chars-min',
   database: pool,
   baseURL:
     process.env.BETTER_AUTH_URL ??
@@ -22,7 +24,7 @@ export const auth = betterAuth({
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
-        : process.env.V0_RUNTIME_URL),
+        : (process.env.V0_RUNTIME_URL ?? 'http://localhost:3000')),
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,

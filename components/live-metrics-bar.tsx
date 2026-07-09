@@ -4,7 +4,7 @@ import { useLive } from '@/hooks/use-live'
 import { cn } from '@/lib/utils'
 
 export function LiveMetricsBar() {
-  const { kpis, frozen } = useLive()
+  const { kpis } = useLive()
 
   const stats = [
     { label: 'RPS', value: `${(kpis.rps / 1000).toFixed(1)}k`, color: 'text-cyan' },
@@ -26,17 +26,8 @@ export function LiveMetricsBar() {
         ))}
       </div>
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        {frozen ? (
-          <>
-            <span className="h-1.5 w-1.5 rounded-full bg-amber" />
-            Frozen
-          </>
-        ) : (
-          <>
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
-            Live
-          </>
-        )}
+        <span className="h-1.5 w-1.5 rounded-full bg-cyan animate-sentinel-pulse" />
+        Live
       </div>
     </div>
   )

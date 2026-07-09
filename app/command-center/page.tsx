@@ -1,21 +1,19 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/session'
 import { SiteNav } from '@/components/site-nav'
 import { PageHeader } from '@/components/page-header'
 import { KpiCards } from '@/components/command/kpi-cards'
 import { CommandConsole } from '@/components/command/command-console'
 import { AnomalyFeed } from '@/components/command/anomaly-feed'
-import { FreezeButton } from '@/components/command/freeze-button'
 import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
 export default async function CommandCenterPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) redirect('/sign-in')
+  const user = await getCurrentUser()
+  if (!user) redirect('/sign-in')
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">
-      <SiteNav user={session.user} />
+      <SiteNav user={user} />
       <LiveMetricsBar />
       <div className="mx-auto max-w-7xl px-4 pt-10">
         <PageHeader
@@ -26,7 +24,6 @@ export default async function CommandCenterPage() {
           <span className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground">
             Region: us-east-1
           </span>
-          <FreezeButton />
         </PageHeader>
 
         <div className="mt-8">

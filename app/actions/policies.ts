@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { assertDatabaseConfigured, db } from '@/lib/db'
 import { shapingPolicies, auditLog } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
@@ -30,11 +30,14 @@ const PolicyUpdateSchema = z.object({
 })
 
 export async function getPolicies() {
+  await getSession()
+  assertDatabaseConfigured()
   return db.select().from(shapingPolicies).orderBy(shapingPolicies.createdAt)
 }
 
 export async function createPolicy(input: z.infer<typeof PolicyCreateSchema>) {
   const session = await getSession()
+  assertDatabaseConfigured()
   const data = PolicyCreateSchema.parse(input)
 
   const id = `pol-${Date.now().toString(36)}`
@@ -69,6 +72,7 @@ export async function updatePolicy(
   input: z.infer<typeof PolicyUpdateSchema>,
 ) {
   const session = await getSession()
+  assertDatabaseConfigured()
   const data = PolicyUpdateSchema.parse(input)
 
   const patch: Record<string, unknown> = { updatedAt: new Date() }
@@ -97,6 +101,7 @@ export async function updatePolicy(
 
 export async function deletePolicy(id: string) {
   const session = await getSession()
+  assertDatabaseConfigured()
 
   const [deleted] = await db
     .delete(shapingPolicies)

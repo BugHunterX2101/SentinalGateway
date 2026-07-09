@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, auditLog } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
@@ -31,11 +31,14 @@ const BASELINES: Record<string, { rps: string; p99: string; errorRate: string }>
 }
 
 export async function getNodes() {
+  await getSession()
+  assertDatabaseConfigured()
   return db.select().from(serviceNodes)
 }
 
 export async function applyNodeAction(nodeId: string, input: z.infer<typeof NodeActionSchema>) {
   const session = await getSession()
+  assertDatabaseConfigured()
   const { action } = NodeActionSchema.parse(input)
 
   const [node] = await db.select().from(serviceNodes).where(eq(serviceNodes.id, nodeId))

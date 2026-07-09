@@ -2,9 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { type AnomalySignal } from '@/lib/sentinel-data'
 import { cn } from '@/lib/utils'
-import { useLive, formatRelative } from '@/hooks/use-live'
+import { type AnomalySignal, useLive, formatRelative } from '@/hooks/use-live'
 
 const severityStyle: Record<AnomalySignal['severity'], { dot: string; badge: string; label: string }> = {
   critical: { dot: 'bg-coral', badge: 'bg-coral/10 text-coral', label: 'Critical' },

@@ -1,0 +1,17 @@
+packages:
+  - .
+
+confirmModulesPurge: false
+
+overrides:
+  hono: 4.12.25
+
+onlyBuiltDependencies:
+  - esbuild
+  - msw
+  - sharp
+
+allowBuilds:
+  esbuild: true
+  msw: true
+  sharp: true

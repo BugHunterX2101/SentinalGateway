@@ -23,6 +23,9 @@ export async function POST(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     if (message === 'Unauthorized') return new Response('Unauthorized', { status: 401 })
+    if (message === 'Neon DATABASE_URL is not configured') {
+      return Response.json({ error: message }, { status: 503 })
+    }
     if (message === 'Decision not found') return Response.json({ error: message }, { status: 404 })
     return Response.json({ error: message }, { status: 500 })
   }

@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { type NodeHealth, type ServiceNode } from '@/lib/sentinel-data'
-import { useLive } from '@/hooks/use-live'
+import { type NodeHealth, type ServiceNode, useLive } from '@/hooks/use-live'
 
 const healthColor: Record<NodeHealth, string> = {
   healthy: 'var(--cyan)',
@@ -139,6 +138,17 @@ export function NervousSystemMap({
           </g>
         )
       })}
+      {serviceNodes.length === 0 && (
+        <text
+          x={W / 2}
+          y={H / 2}
+          textAnchor="middle"
+          className="fill-muted-foreground text-[18px]"
+          style={{ fontFamily: 'var(--font-sans)' }}
+        >
+          Waiting for live service nodes
+        </text>
+      )}
     </svg>
   )
 }

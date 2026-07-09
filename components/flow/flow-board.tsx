@@ -45,7 +45,16 @@ export function FlowBoard({ initialPolicies }: Props) {
   })
 
   const active = policies.find((p) => p.id === activeId) ?? policies[0]
-  if (!active) return null
+  if (!active) {
+    return (
+      <div className="glass rounded-2xl p-6">
+        <h2 className="text-sm font-semibold text-foreground">No shaping policies yet</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Create a policy to persist it in Neon and begin receiving live load updates.
+        </p>
+      </div>
+    )
+  }
 
   const enforcing = policies.filter((p) => p.state !== 'paused')
   const utilization = Math.round(

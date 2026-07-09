@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/session'
 import { AuthForm } from '@/components/auth-form'
 
 export const metadata = {
@@ -9,8 +8,8 @@ export const metadata = {
 }
 
 export default async function SignUpPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user) redirect('/command-center')
+  const user = await getCurrentUser()
+  if (user) redirect('/command-center')
 
   return (
     <main className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4 py-16">

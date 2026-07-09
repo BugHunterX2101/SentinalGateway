@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { NervousSystemMap } from '@/components/nervous-system-map'
-import { type ServiceNode, type CircuitState } from '@/lib/sentinel-data'
+import { type ServiceNode, type CircuitState } from '@/hooks/use-live'
 import { cn } from '@/lib/utils'
 import { useLiveWithDb } from '@/hooks/use-live'
 import { CheckCircle, Loader2 } from 'lucide-react'
@@ -23,13 +23,21 @@ const healthLabel: Record<ServiceNode['health'], string> = {
 export function CommandConsole() {
   const { nodes } = useLiveWithDb()
   const [selectedId, setSelectedId] = useState<string>(
-    () => (nodes.find((n) => n.health === 'critical') ?? nodes[0]).id,
+    () => '',
   )
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   // Always read the live version of the selected node so its vitals update in real time.
   const selected = nodes.find((n) => n.id === selectedId) ?? nodes[0]
+  if (!selected) {
+    return (
+      <div className="glass rounded-2xl p-6 text-sm text-muted-foreground">
+        Waiting for authenticated live service telemetry from the database.
+      </div>
+    )
+  }
+
   const circuit = circuitStyle[selected.circuit]
 
   function triggerAction(action: 'mitigate' | 'snooze') {

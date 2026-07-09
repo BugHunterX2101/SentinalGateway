@@ -3,7 +3,7 @@
 // streams a JSON payload to all subscribed clients.
 
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
 import { headers } from 'next/headers'
 
@@ -16,6 +16,15 @@ export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 })
+  }
+
+  try {
+    assertDatabaseConfigured()
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : 'Database unavailable' },
+      { status: 503 },
+    )
   }
 
   const encoder = new TextEncoder()

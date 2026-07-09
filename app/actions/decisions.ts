@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { assertDatabaseConfigured, db } from '@/lib/db'
 import { decisions, decisionSteps, auditLog, serviceNodes } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { headers } from 'next/headers'
@@ -15,6 +15,8 @@ async function getSession() {
 }
 
 export async function getDecisions() {
+  await getSession()
+  assertDatabaseConfigured()
   const rows = await db
     .select()
     .from(decisions)
@@ -41,6 +43,7 @@ const ActionSchema = z.object({
 
 export async function applyDecisionAction(id: string, input: z.infer<typeof ActionSchema>) {
   const session = await getSession()
+  assertDatabaseConfigured()
   const { action } = ActionSchema.parse(input)
 
   const outcome = action === 'approve' ? 'Contained' : 'Rolled back'

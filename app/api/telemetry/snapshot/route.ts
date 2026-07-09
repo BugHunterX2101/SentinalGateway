@@ -2,7 +2,7 @@
 // Used for initial hydration or polling clients that do not support SSE.
 
 import { auth } from '@/lib/auth'
-import { db } from '@/lib/db'
+import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
 import { headers } from 'next/headers'
 
@@ -12,6 +12,15 @@ export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 })
+  }
+
+  try {
+    assertDatabaseConfigured()
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : 'Database unavailable' },
+      { status: 503 },
+    )
   }
 
   const [nodes, policies] = await Promise.all([
