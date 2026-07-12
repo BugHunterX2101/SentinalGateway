@@ -286,36 +286,53 @@ function applyPayload(payload: TelemetryPayload) {
   listeners.forEach((listener) => listener())
 }
 
-async function loadSnapshot() {
+const publicPaths = ['/sign-in', '/sign-up']
+let isAuthenticated = typeof window !== 'undefined' ? !publicPaths.includes(window.location.pathname) : true
+let isConnecting = false
+
+async function loadSnapshot(): Promise<boolean> {
   const response = await fetch('/api/telemetry/snapshot', { cache: 'no-store' })
-  if (!response.ok) return
+  if (response.status === 401) {
+    isAuthenticated = false
+    return false
+  }
+  if (!response.ok) return true
   applyPayload(await response.json())
+  return true
 }
 
 function start() {
-  if (eventSource || typeof window === 'undefined') return
+  if (eventSource || isConnecting || typeof window === 'undefined' || !isAuthenticated) return
+  isConnecting = true
 
-  void loadSnapshot().catch(() => {
-    // The UI remains empty when the authenticated real-time backend is unavailable.
-  })
-
-  eventSource = new EventSource('/api/telemetry/stream')
-  eventSource.onmessage = (event) => {
-    try {
-      applyPayload(JSON.parse(event.data))
-    } catch {
-      // Ignore malformed stream events.
+  void loadSnapshot().then((authenticated) => {
+    if (!authenticated) {
+      isConnecting = false
+      return
     }
-  }
-  eventSource.onerror = () => {
-    eventSource?.close()
-    eventSource = null
-  }
+
+    eventSource = new EventSource('/api/telemetry/stream')
+    eventSource.onmessage = (event) => {
+      try {
+        applyPayload(JSON.parse(event.data))
+      } catch {
+        // Ignore malformed stream events.
+      }
+    }
+    eventSource.onerror = () => {
+      eventSource?.close()
+      eventSource = null
+      isConnecting = false
+    }
+  }).catch(() => {
+    isConnecting = false
+  })
 }
 
 function stop() {
   eventSource?.close()
   eventSource = null
+  isConnecting = false
 }
 
 function subscribe(listener: () => void) {
