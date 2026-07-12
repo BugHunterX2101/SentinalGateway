@@ -1,30 +1,39 @@
 import { betterAuth } from 'better-auth'
 import { pool } from '@/lib/db'
 
-// The v0 preview renders inside a cross-site iframe, so session cookies must
-// be SameSite=None; Secure — otherwise the browser silently drops them and the
-// user appears permanently logged out.
-//
-// We apply the override whenever we're NOT on a real production Vercel
-// deployment (i.e. no VERCEL_PROJECT_PRODUCTION_URL *or* there IS a
-// V0_RUNTIME_URL, which is always present inside the v0 VM sandbox).
-const isPreviewOrDev =
-  process.env.NODE_ENV === 'development' ||
-  !!process.env.V0_RUNTIME_URL ||
-  !process.env.VERCEL_PROJECT_PRODUCTION_URL
+// Determine environment for cookie settings
+// - Local development: http://localhost:3000 needs SameSite: 'lax', Secure: false
+// - Preview (v0, Vercel preview): cross-site iframe needs SameSite: 'none', Secure: true
+// - Production (Vercel prod): SameSite: 'lax', Secure: true
+const isLocalDev = process.env.NODE_ENV === 'development' && !process.env.V0_RUNTIME_URL && !process.env.VERCEL_URL
+const isPreview = !!process.env.V0_RUNTIME_URL || (!!process.env.VERCEL_URL && !process.env.VERCEL_PROJECT_PRODUCTION_URL)
+const isProduction = !!process.env.VERCEL_PROJECT_PRODUCTION_URL
+
+let defaultCookieAttributes: { sameSite: 'lax' | 'none'; secure: boolean }
+
+if (isLocalDev) {
+  defaultCookieAttributes = { sameSite: 'lax', secure: false }
+} else if (isPreview) {
+  defaultCookieAttributes = { sameSite: 'none', secure: true }
+} else {
+  defaultCookieAttributes = { sameSite: 'lax', secure: true }
+}
+
+const baseURL = process.env.BETTER_AUTH_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.V0_RUNTIME_URL
+        ? process.env.V0_RUNTIME_URL
+        : 'http://localhost:3000')
 
 export const auth = betterAuth({
   secret:
     process.env.BETTER_AUTH_SECRET ??
     'local-build-placeholder-secret-32-chars-min',
   database: pool,
-  baseURL:
-    process.env.BETTER_AUTH_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : (process.env.V0_RUNTIME_URL ?? 'http://localhost:3000')),
+  baseURL,
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
@@ -36,12 +45,13 @@ export const auth = betterAuth({
     ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
       : []),
-    // Trust all preview and production deployments for this project
     'https://sentinalgateway.vercel.app',
     'https://sentinalgateway-ochre.vercel.app',
     'https://*.sentinalgateway*.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3003',
   ],
   session: {
     expiresIn: 60 * 60 * 24 * 7,
@@ -52,13 +62,8 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    // Always use cross-site cookie attributes in preview/dev so the v0 iframe
-    // and Vercel preview deployments retain the session cookie.
-    defaultCookieAttributes: isPreviewOrDev
-      ? { sameSite: 'none' as const, secure: true }
-      : { sameSite: 'lax' as const, secure: true },
-    // Use a consistent cookie prefix so middleware can find it reliably.
-    useSecureCookies: true,
+    defaultCookieAttributes,
+    useSecureCookies: !isLocalDev,
     crossSubDomainCookies: {
       enabled: false,
     },

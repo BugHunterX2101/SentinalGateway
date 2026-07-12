@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
-import { ShieldCheck, Loader2 } from 'lucide-react'
+import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
@@ -33,19 +33,14 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
         if (result.error) throw new Error(result.error.message)
       }
 
-      // Give the browser a tick to commit the Set-Cookie header, then do a
-      // full hard-navigation so the server RSC re-runs auth.api.getSession()
-      // with the freshly written cookie. router.push() alone can race the
-      // cookie write in cross-site iframe environments (v0 preview, Vercel
-      // preview deployments).
-      await new Promise((r) => setTimeout(r, 100))
-      router.refresh()
-      router.push(redirectTo)
+      // Use hard navigation to ensure cookie is sent with the next request
+      // This avoids the race condition between router.refresh() and cookie write
+      // especially in cross-site iframe environments (v0 preview, Vercel preview)
+      window.location.href = redirectTo
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
-    // Keep spinner alive while navigation is in flight.
   }
 
   return (
@@ -113,15 +108,16 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
             autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
             className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </div>
 
         {error && (
-          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
             {error}
-          </p>
+          </div>
         )}
 
         <button

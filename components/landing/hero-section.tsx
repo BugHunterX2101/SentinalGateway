@@ -80,7 +80,7 @@ export function HeroSection() {
               href="/decisions"
               className="rounded-full border border-border bg-card/80 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-colors hover:bg-secondary"
             >
-              View Docs
+              Inspect Decisions
             </Link>
           </div>
 

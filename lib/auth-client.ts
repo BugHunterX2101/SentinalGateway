@@ -2,11 +2,17 @@
 
 import { createAuthClient } from 'better-auth/react'
 
-// Use NEXT_PUBLIC_BETTER_AUTH_URL if set, otherwise fall back to the current
-// origin so requests always go to the same host as the page — this avoids
-// CORS failures on preview deployments with dynamic URLs.
+// Client-side baseURL: use explicit env var or fallback to window.origin
+// This ensures CORS works correctly on preview deployments with dynamic URLs
+const getBaseURL = () => {
+  if (typeof window !== 'undefined') {
+    return process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? window.location.origin
+  }
+  return process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? ''
+}
+
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? '',
+  baseURL: getBaseURL(),
 })
 
 export const { signIn, signUp, signOut, useSession } = authClient

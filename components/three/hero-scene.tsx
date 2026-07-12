@@ -9,6 +9,7 @@ import { useLive } from '@/hooks/use-live'
 // Soft round sprite so particles render as glowing dots rather than squares.
 function useDotTexture() {
   return useMemo(() => {
+    if (typeof document === 'undefined') return null
     const size = 64
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = size
@@ -74,7 +75,7 @@ function ParticleStream({ intensity }: { intensity: number }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
       </bufferGeometry>
       <pointsMaterial
-        map={tex}
+        map={tex || undefined}
         size={0.22}
         transparent
         depthWrite={false}

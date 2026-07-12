@@ -14,7 +14,7 @@ export function LiveMetricsBar() {
   ]
 
   return (
-    <div className="mx-4 -mt-1 mb-4 flex items-center justify-between rounded-xl border border-border/60 bg-card/60 px-4 py-2 backdrop-blur sm:mx-auto sm:max-w-7xl">
+    <div className="mx-4 my-4 flex items-center justify-between rounded-xl border border-border/60 bg-card/60 px-4 py-2 backdrop-blur sm:mx-auto sm:max-w-7xl">
       <div className="flex items-center gap-4">
         {stats.map((s) => (
           <div key={s.label} className="flex items-baseline gap-1.5">

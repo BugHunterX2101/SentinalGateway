@@ -16,6 +16,12 @@ export function Sparkline({
   width?: number
   height?: number
 }) {
+  if (data.length < 2) {
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" className="overflow-visible" />
+    )
+  }
+
   const max = Math.max(...data)
   const min = Math.min(...data)
   const range = max - min || 1
