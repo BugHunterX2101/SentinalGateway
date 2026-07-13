@@ -137,7 +137,6 @@ Every action calls `getUserId()` which validates the Better Auth session before 
 ```mermaid
 graph TD
     subgraph Client["Browser"]
-        SimEngine["lib/live-store.ts<br/>tick loop — animated telemetry"]
         Hook["hooks/use-live.ts<br/>useSyncExternalStore + SSE merge"]
         UI["Live UI Components<br/>KPI cards, sparklines, topology map"]
     end
@@ -154,7 +153,7 @@ graph TD
         AppTables["service_nodes / shaping_policies<br/>decisions / decision_steps / audit_log"]
     end
 
-    SimEngine --> Hook --> UI
+    Hook --> UI
     UI --> APIRoutes
     SSE --> DB
     Hook --> SSE
@@ -184,20 +183,20 @@ sequenceDiagram
     Hook->>UI: re-render sparklines, feeds, topology map
 ```
 
-The client simulation engine (`lib/live-store.ts`) runs a continuous 1.5 s tick for animated metrics. `useLiveWithDb()` subscribes to the server-sent event stream and overlays real DB node health and circuit state on top of the simulation, ensuring the UI always reflects persisted gateway state while maintaining smooth animations.
+`useLiveWithDb()` subscribes to the authenticated server-sent event stream and derives KPIs, topology edges, anomaly signals, and sparklines from each database snapshot. The browser never connects directly to the database.
 
 ---
 
 ## Key Architecture Decisions
 
-**Why a client simulation engine alongside a real DB?**
-The DB stores authoritative state (circuit open/closed, health, policies). The simulation adds animated telemetry (RPS fluctuations, sparklines, p99 jitter) so the UI feels alive. They are deliberately separate: the DB drives correctness, the simulation drives aesthetics. `useLiveWithDb()` merges them — DB fields win on every key collision.
+**Why an SSE-backed client store?**
+The database stores the authoritative service state. The client store receives authenticated snapshots over SSE and derives visual telemetry without making browser-side database calls.
 
 **Why no RLS on Neon?**
-Better Auth uses a `pg` Pool for session management. Adding row-level security to the same Pool requires per-query `SET LOCAL role` which conflicts with connection pooling. Instead, every server action and API route calls `getUserId()` which throws `Unauthorized` if the session is missing, and all queries include an explicit `WHERE userId = ?` clause.
+Better Auth uses a shared `pg` Pool for session management. Protected routes and actions require a valid session, and operator-owned shaping policies are explicitly filtered by their `created_by` user ID. Gateway node and decision data are shared control-plane state.
 
 **Why `'use client'` is never imported from server routes**
-`lib/live-store.ts` is a `'use client'` module. Previous versions of the codebase imported it in the SSE route handler and the nodes action API, causing a hard Next.js build failure. The fix was to rewrite both server routes to be fully self-contained — no live-store imports, no browser globals.
+The SSE route and node-action API are fully server-side. They do not import browser globals or client-only modules.
 
 ---
 
@@ -256,19 +255,17 @@ sentinel-gateway/
 │       └── export-audit-button.tsx # Download audit log as CSV
 │
 ├── hooks/
-│   └── use-live.ts                 # useLive (sim-only) + useLiveWithDb (sim + SSE)
+│   └── use-live.ts                 # useSyncExternalStore + authenticated SSE telemetry
 │
 ├── lib/
 │   ├── auth.ts                     # Better Auth config (trustedOrigins + dev cookie fix)
 │   ├── auth-client.ts              # Better Auth React client
-│   ├── live-store.ts               # Real-time simulation engine ('use client')
-│   ├── sentinel-data.ts            # Seed types + static data
 │   ├── db/
 │   │   ├── index.ts                # Drizzle client + shared pg Pool
 │   │   └── schema.ts               # Better Auth tables + 5 app tables
 │   └── utils.ts                    # cn() helper
 │
-├── middleware.ts                   # Session-based route protection
+├── proxy.ts                        # Session-based route protection
 └── drizzle.config.ts               # Drizzle config (Neon connection)
 ```
 
@@ -291,30 +288,23 @@ sentinel-gateway/
 ```env
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 BETTER_AUTH_SECRET=<32+ character random string>
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 ```
+
+Use `.env.local` for local values. It is ignored by Git, together with `.env`, so secrets are not committed.
 
 ### Database Setup
 
-All 9 tables must be created with raw SQL against your Neon database. Do **not** use `drizzle-kit push` — Better Auth requires exact camelCase column names that drizzle-kit would not generate correctly.
+`lib/db/schema.ts` is the source of truth for the four Better Auth tables and five application tables. Provision a new database through your approved migration workflow, preserving the table and column names in that file.
 
-The recommended approach is to run each `CREATE TABLE` statement from `lib/db/schema.ts` directly in the Neon SQL editor or via `psql`:
+Verify an existing database before running the app:
 
-```sql
--- 1. Better Auth tables (run in order — session/account reference user)
-CREATE TABLE IF NOT EXISTS "user" ( ... );
-CREATE TABLE IF NOT EXISTS "session" ( ... );
-CREATE TABLE IF NOT EXISTS "account" ( ... );
-CREATE TABLE IF NOT EXISTS "verification" ( ... );
-
--- 2. App tables
-CREATE TABLE IF NOT EXISTS "service_nodes" ( ... );
-CREATE TABLE IF NOT EXISTS "shaping_policies" ( ... );
-CREATE TABLE IF NOT EXISTS "decisions" ( ... );
-CREATE TABLE IF NOT EXISTS "decision_steps" ( ... );
-CREATE TABLE IF NOT EXISTS "audit_log" ( ... );
+```bash
+pnpm exec node scripts/check-neon-schema.mjs
 ```
 
-The full `CREATE TABLE` statements are in `lib/db/schema.ts`. After creating the tables, seed the initial 8-node topology and 5 default shaping policies — the seed values match the static data in `lib/sentinel-data.ts`.
+The verification script loads `.env.local` when present and performs read-only information-schema queries. It must list `user`, `session`, `account`, `verification`, `service_nodes`, `shaping_policies`, `decisions`, `decision_steps`, and `audit_log`.
 
 ### Install and Run
 
@@ -334,6 +324,17 @@ Open [http://localhost:3000](http://localhost:3000), sign up for an operator acc
 pnpm build
 pnpm start
 ```
+
+### Verification
+
+```bash
+pnpm typecheck
+pnpm build
+pnpm audit --prod
+pnpm exec node scripts/check-neon-schema.mjs
+```
+
+`GET /api/auth/get-session` returns `200` with `null` when no operator is signed in. Inner API routes and telemetry require an authenticated session. Policy reads and writes are scoped to the policy creator, malformed node and decision actions are rejected, and a decision cannot be actioned twice.
 
 ### Deploying to Vercel
 
@@ -365,7 +366,7 @@ pnpm start
 - **Typography** — Geist Sans for all UI copy; Geist Mono for numeric metrics and code.
 - **Surfaces** — glassmorphism throughout: translucent panels, `backdrop-blur-md`, soft borders.
 - **Motion** — `sentinel-pulse` keyframe on all live indicators; continuous drift on the 3D ambient scene.
-- **3D** — Glass prism rendered with `MeshPhysicalMaterial` (transmission + roughness), 900-particle stream dispersing through world-space `±7` units, orbital rings with `TubeGeometry`.
+- **3D** — Glass prism rendered with `MeshTransmissionMaterial`, a 900-particle stream, and orbital rings.
 
 ---
 

@@ -40,11 +40,17 @@ export async function getDecisions() {
 const ActionSchema = z.object({
   action: z.enum(['approve', 'rollback']),
 })
+const DecisionIdSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/)
 
 export async function applyDecisionAction(id: string, input: z.infer<typeof ActionSchema>) {
   const session = await getSession()
   assertDatabaseConfigured()
+  const decisionId = DecisionIdSchema.parse(id)
   const { action } = ActionSchema.parse(input)
+
+  const [existing] = await db.select().from(decisions).where(eq(decisions.id, decisionId))
+  if (!existing) throw new Error('Decision not found')
+  if (existing.status !== 'active') throw new Error('Decision has already been actioned')
 
   const outcome = action === 'approve' ? 'Contained' : 'Rolled back'
   const status = action === 'approve' ? 'approved' : 'rolled_back'
@@ -52,7 +58,7 @@ export async function applyDecisionAction(id: string, input: z.infer<typeof Acti
   const [updated] = await db
     .update(decisions)
     .set({ outcome, status, updatedAt: new Date() })
-    .where(eq(decisions.id, id))
+    .where(eq(decisions.id, decisionId))
     .returning()
 
   if (!updated) throw new Error('Decision not found')

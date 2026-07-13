@@ -11,10 +11,10 @@ export async function POST(
 ) {
   const { id } = await params
   const body = await request.json().catch(() => ({}))
-  const action = (body as { action?: string }).action ?? 'mitigate'
+  const action = (body as { action?: string }).action
 
   const valid = ['mitigate', 'snooze', 'reset'] as const
-  if (!valid.includes(action as (typeof valid)[number])) {
+  if (!action || !valid.includes(action as (typeof valid)[number])) {
     return Response.json({ error: 'Invalid action' }, { status: 400 })
   }
 

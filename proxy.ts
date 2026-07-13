@@ -8,6 +8,17 @@ const protectedPaths = ['/command-center', '/flow-canvas', '/decisions']
 // Paths that should redirect authenticated users away
 const authPaths = ['/sign-in', '/sign-up']
 
+function getSafeCallbackUrl(value: string | null, request: NextRequest) {
+  if (!value) return '/command-center'
+
+  try {
+    const target = new URL(value, request.url)
+    return target.origin === request.nextUrl.origin ? `${target.pathname}${target.search}` : '/command-center'
+  } catch {
+    return '/command-center'
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -31,7 +42,7 @@ export async function proxy(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated && isAuthPath) {
-    const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || '/command-center'
+    const callbackUrl = getSafeCallbackUrl(request.nextUrl.searchParams.get('callbackUrl'), request)
     return NextResponse.redirect(new URL(callbackUrl, request.url))
   }
 

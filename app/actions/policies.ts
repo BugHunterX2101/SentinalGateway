@@ -3,7 +3,7 @@
 import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { shapingPolicies, auditLog } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -29,10 +29,16 @@ const PolicyUpdateSchema = z.object({
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
 })
 
+const PolicyIdSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/)
+
 export async function getPolicies() {
-  await getSession()
+  const session = await getSession()
   assertDatabaseConfigured()
-  return db.select().from(shapingPolicies).orderBy(shapingPolicies.createdAt)
+  return db
+    .select()
+    .from(shapingPolicies)
+    .where(eq(shapingPolicies.createdBy, session.user.id))
+    .orderBy(shapingPolicies.createdAt)
 }
 
 export async function createPolicy(input: z.infer<typeof PolicyCreateSchema>) {
@@ -73,6 +79,7 @@ export async function updatePolicy(
 ) {
   const session = await getSession()
   assertDatabaseConfigured()
+  const policyId = PolicyIdSchema.parse(id)
   const data = PolicyUpdateSchema.parse(input)
 
   const patch: Record<string, unknown> = { updatedAt: new Date() }
@@ -83,7 +90,7 @@ export async function updatePolicy(
   const [updated] = await db
     .update(shapingPolicies)
     .set(patch)
-    .where(eq(shapingPolicies.id, id))
+    .where(and(eq(shapingPolicies.id, policyId), eq(shapingPolicies.createdBy, session.user.id)))
     .returning()
 
   if (!updated) throw new Error('Policy not found')
@@ -102,10 +109,11 @@ export async function updatePolicy(
 export async function deletePolicy(id: string) {
   const session = await getSession()
   assertDatabaseConfigured()
+  const policyId = PolicyIdSchema.parse(id)
 
   const [deleted] = await db
     .delete(shapingPolicies)
-    .where(eq(shapingPolicies.id, id))
+    .where(and(eq(shapingPolicies.id, policyId), eq(shapingPolicies.createdBy, session.user.id)))
     .returning()
 
   if (!deleted) throw new Error('Policy not found')

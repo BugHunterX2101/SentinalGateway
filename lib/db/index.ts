@@ -6,10 +6,6 @@ const connectionString = process.env.DATABASE_URL
 
 export const pool = new Pool({
   connectionString,
-  ssl:
-    connectionString?.includes('neon.tech') || connectionString?.includes('sslmode=require')
-      ? { rejectUnauthorized: false }
-      : undefined,
 })
 
 export const db = drizzle(pool, { schema })

@@ -10,10 +10,10 @@ export async function POST(
 ) {
   const { id } = await params
   const body = await request.json().catch(() => ({}))
-  const action = (body as { action?: string }).action ?? 'approve'
+  const action = (body as { action?: string }).action
 
   const valid = ['approve', 'rollback'] as const
-  if (!valid.includes(action as (typeof valid)[number])) {
+  if (!action || !valid.includes(action as (typeof valid)[number])) {
     return Response.json({ error: 'Invalid action. Use approve or rollback.' }, { status: 400 })
   }
 
@@ -27,6 +27,9 @@ export async function POST(
       return Response.json({ error: message }, { status: 503 })
     }
     if (message === 'Decision not found') return Response.json({ error: message }, { status: 404 })
+    if (message === 'Decision has already been actioned') {
+      return Response.json({ error: message }, { status: 409 })
+    }
     return Response.json({ error: message }, { status: 500 })
   }
 }

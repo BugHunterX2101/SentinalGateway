@@ -15,6 +15,7 @@ interface Props {
 export function DecisionSummary({ decision }: Props) {
   const { decisionConfidence, requestsProtected } = useLive()
   const [status, setStatus] = useState<string>(decision?.status ?? 'active')
+  const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   if (!decision) {
@@ -26,12 +27,13 @@ export function DecisionSummary({ decision }: Props) {
   }
 
   function applyAction(action: 'approve' | 'rollback') {
+    setError(null)
     startTransition(async () => {
       try {
         const updated = await applyDecisionAction(decision!.id, { action })
         setStatus(updated.status)
-      } catch {
-        // keep current status on error
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Decision action failed')
       }
     })
   }
@@ -109,6 +111,12 @@ export function DecisionSummary({ decision }: Props) {
               ? 'Mitigation approved and kept active.'
               : 'Mitigation rolled back. Circuit reset to closed.'}
           </div>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-3 py-2 text-xs text-coral">
+            {error}
+          </p>
         )}
 
         {isActive && (

@@ -4,6 +4,7 @@
 import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
@@ -23,10 +24,14 @@ export async function GET() {
     )
   }
 
-  const [nodes, policies] = await Promise.all([
-    db.select().from(serviceNodes),
-    db.select().from(shapingPolicies),
-  ])
+  try {
+    const [nodes, policies] = await Promise.all([
+      db.select().from(serviceNodes),
+      db.select().from(shapingPolicies).where(eq(shapingPolicies.createdBy, session.user.id)),
+    ])
 
-  return Response.json({ nodes, policies })
+    return Response.json({ nodes, policies })
+  } catch {
+    return Response.json({ error: 'Database unavailable' }, { status: 503 })
+  }
 }

@@ -49,7 +49,7 @@ export function CommandConsole() {
           body: JSON.stringify({ action }),
         })
         if (res.ok) {
-          setFeedback(action === 'mitigate' ? 'Mitigation applied.' : 'Snoozed for 1 hour.')
+          setFeedback(action === 'mitigate' ? 'Mitigation applied.' : 'Alert snoozed.')
         } else {
           setFeedback('Action failed — please retry.')
         }
@@ -142,7 +142,7 @@ export function CommandConsole() {
             disabled={isPending}
             className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
           >
-            Snooze 1h
+            Snooze alert
           </button>
         </div>
       </aside>

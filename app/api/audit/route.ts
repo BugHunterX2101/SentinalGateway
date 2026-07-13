@@ -6,6 +6,10 @@ import { getAuditLog } from '@/app/actions/audit'
 
 export const dynamic = 'force-dynamic'
 
+function escapeCsv(value: unknown) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`
+}
+
 export async function GET(request: Request) {
   try {
     const log = await getAuditLog(200)
@@ -16,11 +20,11 @@ export async function GET(request: Request) {
       const rows = log
         .map((e) =>
           [
-            e.createdAt instanceof Date ? e.createdAt.toISOString() : String(e.createdAt),
-            e.type,
-            e.actor,
-            e.subject,
-            `"${e.detail.replace(/"/g, '""')}"`,
+            escapeCsv(e.createdAt instanceof Date ? e.createdAt.toISOString() : e.createdAt),
+            escapeCsv(e.type),
+            escapeCsv(e.actor),
+            escapeCsv(e.subject),
+            escapeCsv(e.detail),
           ].join(','),
         )
         .join('\n')

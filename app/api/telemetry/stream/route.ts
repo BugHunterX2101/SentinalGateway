@@ -5,6 +5,7 @@
 import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
@@ -17,6 +18,7 @@ export async function GET(req: Request) {
   if (!session?.user) {
     return new Response('Unauthorized', { status: 401 })
   }
+  const userId = session.user.id
 
   try {
     assertDatabaseConfigured()
@@ -43,7 +45,7 @@ export async function GET(req: Request) {
         try {
           const [nodes, policies] = await Promise.all([
             db.select().from(serviceNodes),
-            db.select().from(shapingPolicies),
+            db.select().from(shapingPolicies).where(eq(shapingPolicies.createdBy, userId)),
           ])
 
           const payload = JSON.stringify({ nodes, policies })

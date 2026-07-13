@@ -17,6 +17,7 @@ async function getSession() {
 const NodeActionSchema = z.object({
   action: z.enum(['mitigate', 'snooze', 'reset']),
 })
+const NodeIdSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/)
 
 // Default baselines used for the 'reset' action — keyed by node id.
 const BASELINES: Record<string, { rps: string; p99: string; errorRate: string }> = {
@@ -39,9 +40,10 @@ export async function getNodes() {
 export async function applyNodeAction(nodeId: string, input: z.infer<typeof NodeActionSchema>) {
   const session = await getSession()
   assertDatabaseConfigured()
+  const id = NodeIdSchema.parse(nodeId)
   const { action } = NodeActionSchema.parse(input)
 
-  const [node] = await db.select().from(serviceNodes).where(eq(serviceNodes.id, nodeId))
+  const [node] = await db.select().from(serviceNodes).where(eq(serviceNodes.id, id))
   if (!node) throw new Error('Node not found')
 
   const patch: Record<string, unknown> = { updatedAt: new Date() }
@@ -59,7 +61,7 @@ export async function applyNodeAction(nodeId: string, input: z.infer<typeof Node
   } else if (action === 'snooze') {
     patch.anomalyScore = '0'
   } else if (action === 'reset') {
-    const base = BASELINES[nodeId]
+    const base = BASELINES[id]
     if (base) {
       patch.rps = base.rps
       patch.p99 = base.p99
@@ -73,7 +75,7 @@ export async function applyNodeAction(nodeId: string, input: z.infer<typeof Node
   const [updated] = await db
     .update(serviceNodes)
     .set(patch)
-    .where(eq(serviceNodes.id, nodeId))
+    .where(eq(serviceNodes.id, id))
     .returning()
 
   await db.insert(auditLog).values({

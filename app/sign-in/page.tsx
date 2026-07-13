@@ -17,7 +17,9 @@ export default async function SignInPage({ searchParams }: Props) {
 
   const { callbackUrl } = await searchParams
   const redirectTo =
-    callbackUrl && callbackUrl.startsWith('/') ? callbackUrl : '/command-center'
+    callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') && !callbackUrl.includes('\\')
+      ? callbackUrl
+      : '/command-center'
 
   return (
     <main className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4 py-16">
