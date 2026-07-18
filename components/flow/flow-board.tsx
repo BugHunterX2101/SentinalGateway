@@ -239,7 +239,7 @@ export function FlowBoard({ initialPolicies }: Props) {
             <input
               id="budget"
               type="range"
-              min={0}
+              min={10}
               max={100}
               value={active.budget}
               onChange={(e) => setBudget(active.id, Number(e.target.value))}

@@ -25,11 +25,11 @@ export function ClosedLoop() {
   return (
     <section className="mx-auto max-w-7xl px-4 pb-16 md:pb-24">
       <div className="glass-strong rounded-3xl p-8 md:p-12">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <h2 className="text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
             One continuous control loop
           </h2>
-          <p className="max-w-md text-muted-foreground">
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
             Sentinel closes the gap between detection and mitigation, turning minutes of manual
             triage into milliseconds of automated response.
           </p>
@@ -40,12 +40,18 @@ export function ClosedLoop() {
             <li key={s.n} className="relative">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-sm font-semibold text-cyan">{s.n}</span>
-                <span className="h-px flex-1 bg-border" />
+                <span className="h-px flex-1 bg-border" aria-hidden />
               </div>
               <h3 className="mt-4 text-lg font-semibold text-foreground">{s.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+              {/* Connector arrow — only visible between cards on desktop */}
               {i < steps.length - 1 && (
-                <span className="absolute -right-3 top-1 hidden text-muted-foreground md:block">→</span>
+                <span
+                  className="pointer-events-none absolute -right-3 top-1 hidden select-none text-sm text-muted-foreground/60 md:block"
+                  aria-hidden
+                >
+                  →
+                </span>
               )}
             </li>
           ))}

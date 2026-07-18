@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
-import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
+import { ShieldCheck, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
@@ -33,9 +33,7 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
         if (result.error) throw new Error(result.error.message)
       }
 
-      // Use hard navigation to ensure cookie is sent with the next request
-      // This avoids the race condition between router.refresh() and cookie write
-      // especially in cross-site iframe environments (v0 preview, Vercel preview)
+      // Hard navigation so the session cookie is sent on the very next request.
       window.location.href = redirectTo
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -45,6 +43,15 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
 
   return (
     <div className="mx-auto w-full max-w-sm">
+      {/* Back to home */}
+      <Link
+        href="/"
+        className="mb-6 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+        Back to overview
+      </Link>
+
       {/* Logo */}
       <div className="mb-8 flex items-center gap-2">
         <ShieldCheck className="h-7 w-7 text-primary" strokeWidth={1.5} />
@@ -108,13 +115,19 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
             autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+            placeholder="••••••••"
             className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
+          {mode === 'sign-up' && (
+            <p className="text-[11px] text-muted-foreground">Minimum 8 characters recommended.</p>
+          )}
         </div>
 
         {error && (
-          <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-xl border border-coral/30 bg-coral/10 px-3 py-2 text-sm text-coral"
+          >
             <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
             {error}
           </div>

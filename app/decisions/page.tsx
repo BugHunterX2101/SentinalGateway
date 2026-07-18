@@ -9,11 +9,17 @@ import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
 export const dynamic = 'force-dynamic'
 
+export const metadata = {
+  title: 'Decision Explainer — Sentinel Gateway',
+  description: 'Inspect every automated decision Sentinel has made, with full reasoning traces and operator controls.',
+}
+
 export default async function DecisionsPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/sign-in')
 
-  const decisions = await getDecisions()
+  // Gracefully handle DB errors — show empty state rather than crashing.
+  const decisions = await getDecisions().catch(() => [])
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">
@@ -29,7 +35,16 @@ export default async function DecisionsPage() {
         </PageHeader>
 
         <div className="mt-8">
-          <DecisionInspector decisions={decisions} />
+          {decisions.length === 0 ? (
+            <div className="glass rounded-2xl p-10 text-center">
+              <p className="text-sm font-medium text-foreground">No decisions on record yet.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Sentinel will record decisions here as it detects anomalies and takes automated actions.
+              </p>
+            </div>
+          ) : (
+            <DecisionInspector decisions={decisions} />
+          )}
         </div>
       </div>
     </main>

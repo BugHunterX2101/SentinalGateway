@@ -13,36 +13,27 @@ const HeroScene = dynamic(() => import('@/components/three/hero-scene'), {
   ),
 })
 
-export function HeroSection() {
+interface HeroSectionProps {
+  isAuthenticated?: boolean
+}
+
+export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
   const { kpis, tick } = useLive()
 
-  // Format RPS to match image style: e.g. 131.6k
   const rpsFormatted = (() => {
     const k = kpis.rps / 1000
     return k >= 100 ? `${Math.round(k)}k` : `${k.toFixed(1)}k`
   })()
 
   const liveStats = [
-    {
-      v: rpsFormatted,
-      l: 'Requests / sec',
-      color: 'bg-cyan',
-    },
-    {
-      v: `${kpis.p99} ms`,
-      l: 'Global p99',
-      color: 'bg-cyan',
-    },
-    {
-      v: `${kpis.errorRate.toFixed(2)}%`,
-      l: 'Error rate',
-      color: 'bg-cyan',
-    },
+    { v: rpsFormatted, l: 'Requests / sec', color: 'bg-cyan' },
+    { v: `${kpis.p99} ms`, l: 'Global p99', color: 'bg-cyan' },
+    { v: `${kpis.errorRate.toFixed(2)}%`, l: 'Error rate', color: 'bg-cyan' },
   ]
 
   return (
     <section className="relative">
-      {/* 3D centerpiece — bleeds behind the copy, dominant on the right */}
+      {/* 3D centerpiece */}
       <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-full lg:w-[80%]">
         <HeroScene />
       </div>
@@ -70,21 +61,40 @@ export function HeroSection() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="/command-center"
-              className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
-            >
-              Explore Sentinel
-            </Link>
-            <Link
-              href="/decisions"
-              className="rounded-full border border-border bg-card/80 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-colors hover:bg-secondary"
-            >
-              Inspect Decisions
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/command-center"
+                  className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
+                >
+                  Open Command Center
+                </Link>
+                <Link
+                  href="/decisions"
+                  className="rounded-full border border-border bg-card/80 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-colors hover:bg-secondary"
+                >
+                  Inspect Decisions
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/sign-up"
+                  className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
+                >
+                  Get Started Free
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="rounded-full border border-border bg-card/80 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition-colors hover:bg-secondary"
+                >
+                  Sign In
+                </Link>
+              </>
+            )}
           </div>
 
-          {/* Live stat row — matches reference image layout */}
+          {/* Live stat row */}
           <dl className="mt-14 grid max-w-md grid-cols-3 gap-x-6 gap-y-1 border-t border-border/70 pt-6">
             {liveStats.map((s) => (
               <div key={s.l}>
@@ -92,7 +102,7 @@ export function HeroSection() {
                   {s.v}
                 </dt>
                 <dd className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.color} animate-sentinel-pulse`} />
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.color} animate-sentinel-pulse`} aria-hidden />
                   {s.l}
                 </dd>
               </div>

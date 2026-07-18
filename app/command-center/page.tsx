@@ -7,6 +7,9 @@ import { CommandConsole } from '@/components/command/command-console'
 import { AnomalyFeed } from '@/components/command/anomaly-feed'
 import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
+// Always server-render so the auth check runs fresh on every request.
+export const dynamic = 'force-dynamic'
+
 export default async function CommandCenterPage() {
   const user = await getCurrentUser()
   if (!user) redirect('/sign-in')
