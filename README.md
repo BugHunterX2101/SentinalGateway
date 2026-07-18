@@ -395,19 +395,19 @@ graph TD
 
 ## Features
 
-### 🔵 Real-Time Anomaly Detection
+### Real-Time Anomaly Detection
 A streaming telemetry pipeline (Server-Sent Events, 1.5 s ticks) reads live node health from Neon and surfaces anomalies in the **Anomaly Stream** feed. Each signal includes severity, metric, baseline vs. observed value, and confidence score.
 
-### 🟠 Adaptive Traffic Shaping
+### Adaptive Traffic Shaping
 Create **shaping policies** with priority lanes, fair queueing, and load-shedding rules. Each policy has a configurable capacity budget; the live load bar tracks real utilization in real time. Changes deploy instantly — no config push, no restart.
 
-### 🔴 Self-Healing Circuit Breakers
+### Self-Healing Circuit Breakers
 The **Nervous System Map** is a live SVG canvas showing every service node, its health, and traffic edges. When a node degrades, the gateway isolates it (circuit open), then probes (half-open) and auto-recovers when signals normalise. Operators can apply, snooze, or roll back mitigations with one click.
 
-### 🟣 Glass-Box Explainability
+### Glass-Box Explainability
 Every automated decision is stored with a full **step-by-step reasoning trace**: phase (Sense → Decide → Act → Explain), weighted signals, confidence per step, and latency overhead. Operators can approve or roll back any action — and the rollback also resets the affected node's state in the database.
 
-### 📋 Durable Audit Log
+### Durable Audit Log
 Every operator action and automated mitigation is written to `audit_log`. The Decisions page offers a one-click **CSV export** of the full audit trail.
 
 ---
@@ -419,9 +419,9 @@ Every operator action and automated mitigation is written to `audit_log`. The De
 | `/` | Public | Landing — live telemetry stats, features, CTA |
 | `/sign-in` | Public | Email + password authentication |
 | `/sign-up` | Public | Operator account registration |
-| `/command-center` | ✅ Required | Live service map, KPI cards, anomaly feed |
-| `/flow-canvas` | ✅ Required | Traffic shaping policy management |
-| `/decisions` | ✅ Required | Decision inspector with full reasoning traces |
+| `/command-center` | Required | Live service map, KPI cards, anomaly feed |
+| `/flow-canvas` | Required | Traffic shaping policy management |
+| `/decisions` | Required | Decision inspector with full reasoning traces |
 
 ---
 
@@ -508,10 +508,10 @@ Set the following environment variables in your Vercel project:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | ✅ | Neon PostgreSQL connection string |
-| `BETTER_AUTH_SECRET` | ✅ | 32+ char random secret |
-| `BETTER_AUTH_URL` | ✅ | Your production URL |
-| `NEXT_PUBLIC_BETTER_AUTH_URL` | ✅ | Same as above (exposed to browser) |
+| `DATABASE_URL` | Yes | Neon PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Yes | 32+ char random secret |
+| `BETTER_AUTH_URL` | Yes | Your production URL |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | Yes | Same as above (exposed to browser) |
 
 > **Note:** `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are automatically set by Vercel — no manual configuration needed.
 
@@ -575,15 +575,15 @@ SentinalGateway/
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/telemetry/snapshot` | GET | ✅ | Single JSON snapshot of nodes + policies |
-| `/api/telemetry/stream` | GET (SSE) | ✅ | Live stream, 1.5 s ticks |
+| `/api/telemetry/snapshot` | GET | Yes | Single JSON snapshot of nodes + policies |
+| `/api/telemetry/stream` | GET (SSE) | Yes | Live stream, 1.5 s ticks |
 
 ### Service Nodes
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/nodes` | GET | ✅ | List all service nodes |
-| `/api/nodes/[id]/action` | POST | ✅ | Apply `mitigate` / `snooze` / `reset` |
+| `/api/nodes` | GET | Yes | List all service nodes |
+| `/api/nodes/[id]/action` | POST | Yes | Apply `mitigate` / `snooze` / `reset` |
 
 **Action body:**
 ```json
@@ -594,10 +594,10 @@ SentinalGateway/
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/policies` | GET | ✅ | List policies (scoped to current user) |
-| `/api/policies` | POST | ✅ | Create policy |
-| `/api/policies/[id]` | PATCH | ✅ | Update `budget`, `state`, `priority` |
-| `/api/policies/[id]` | DELETE | ✅ | Delete policy |
+| `/api/policies` | GET | Yes | List policies (scoped to current user) |
+| `/api/policies` | POST | Yes | Create policy |
+| `/api/policies/[id]` | PATCH | Yes | Update `budget`, `state`, `priority` |
+| `/api/policies/[id]` | DELETE | Yes | Delete policy |
 
 **Create body:**
 ```json
@@ -614,14 +614,14 @@ SentinalGateway/
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/decisions` | GET | ✅ | List recent decisions (up to 50, with steps) |
-| `/api/decisions/[id]/action` | POST | ✅ | `approve` or `rollback` |
+| `/api/decisions` | GET | Yes | List recent decisions (up to 50, with steps) |
+| `/api/decisions/[id]/action` | POST | Yes | `approve` or `rollback` |
 
 ### Audit
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/audit` | GET | ✅ | Audit log — `Accept: application/json` or `Accept: text/csv` |
+| `/api/audit` | GET | Yes | Audit log — `Accept: application/json` or `Accept: text/csv` |
 
 ---
 
