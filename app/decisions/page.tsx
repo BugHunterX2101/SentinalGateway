@@ -3,8 +3,7 @@ import { getCurrentUser } from '@/lib/session'
 import { getDecisions } from '@/app/actions/decisions'
 import { SiteNav } from '@/components/site-nav'
 import { PageHeader } from '@/components/page-header'
-import { DecisionTrace } from '@/components/decisions/decision-trace'
-import { DecisionSummary } from '@/components/decisions/decision-summary'
+import { DecisionInspector } from '@/components/decisions/decision-inspector'
 import { ExportAuditButton } from '@/components/decisions/export-audit-button'
 import { LiveMetricsBar } from '@/components/live-metrics-bar'
 
@@ -15,7 +14,6 @@ export default async function DecisionsPage() {
   if (!user) redirect('/sign-in')
 
   const decisions = await getDecisions()
-  const latest = decisions[0] ?? null
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">
@@ -30,9 +28,8 @@ export default async function DecisionsPage() {
           <ExportAuditButton />
         </PageHeader>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_360px]">
-          <DecisionTrace decision={latest} />
-          <DecisionSummary decision={latest} />
+        <div className="mt-8">
+          <DecisionInspector decisions={decisions} />
         </div>
       </div>
     </main>

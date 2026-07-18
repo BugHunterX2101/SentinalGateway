@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { useLiveWithDb } from '@/hooks/use-live'
-import { updatePolicy } from '@/app/actions/policies'
-import { CheckCircle, Loader2 } from 'lucide-react'
+import { updatePolicy, deletePolicy } from '@/app/actions/policies'
+import { CheckCircle, Loader2, Trash2 } from 'lucide-react'
 import type { getPolicies } from '@/app/actions/policies'
 
 type DbPolicy = Awaited<ReturnType<typeof getPolicies>>[number]
@@ -29,22 +29,25 @@ interface Props {
 export function FlowBoard({ initialPolicies }: Props) {
   // Live SSE stream keeps load percentages up to date; merge with DB policies.
   const { policies: livePolicies } = useLiveWithDb()
+  const [policies, setPolicies] = useState<DbPolicy[]>(initialPolicies)
   const [budgetOverride, setBudgetOverride] = useState<Record<string, number>>({})
   const [activeId, setActiveId] = useState(initialPolicies[0]?.id ?? '')
   const [deployFeedback, setDeployFeedback] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [isDeleting, startDeleteTransition] = useTransition()
 
   // Merge: DB gives authoritative state/budget; live SSE gives current load %.
-  const policies = initialPolicies.map((p) => {
+  const merged = policies.map((p) => {
     const live = livePolicies.find((l) => l.id === p.id)
     return {
       ...p,
       budget: budgetOverride[p.id] ?? Number(p.budget),
-      load: live?.load ?? 0,
+      load: live ? Number(live.load) : 0,
     }
   })
 
-  const active = policies.find((p) => p.id === activeId) ?? policies[0]
+  const active = merged.find((p) => p.id === activeId) ?? merged[0]
   if (!active) {
     return (
       <div className="glass rounded-2xl p-6">
@@ -56,7 +59,7 @@ export function FlowBoard({ initialPolicies }: Props) {
     )
   }
 
-  const enforcing = policies.filter((p) => p.state !== 'paused')
+  const enforcing = merged.filter((p) => p.state !== 'paused')
   const utilization = Math.round(
     enforcing.reduce((s, p) => s + p.load, 0) / Math.max(1, enforcing.length),
   )
@@ -77,6 +80,36 @@ export function FlowBoard({ initialPolicies }: Props) {
     })
   }
 
+  function handleDeleteRequest() {
+    setDeleteConfirm(true)
+  }
+
+  function handleDeleteCancel() {
+    setDeleteConfirm(false)
+  }
+
+  function handleDeleteConfirm() {
+    startDeleteTransition(async () => {
+      try {
+        await deletePolicy(active.id)
+        // Remove from local list and select next available policy.
+        const remaining = policies.filter((p) => p.id !== active.id)
+        setPolicies(remaining)
+        setActiveId(remaining[0]?.id ?? '')
+        setBudgetOverride((prev) => {
+          const next = { ...prev }
+          delete next[active.id]
+          return next
+        })
+        setDeleteConfirm(false)
+      } catch {
+        setDeployFeedback('Delete failed — please retry.')
+        setDeleteConfirm(false)
+        setTimeout(() => setDeployFeedback(null), 4000)
+      }
+    })
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       {/* Policy list */}
@@ -85,19 +118,19 @@ export function FlowBoard({ initialPolicies }: Props) {
           <h2 className="text-sm font-semibold text-foreground">Shaping policies</h2>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 animate-sentinel-pulse rounded-full bg-cyan" />
-            {policies.length} lanes · live load
+            {merged.length} lanes · live load
           </span>
         </div>
 
         <ul className="mt-4 flex flex-col gap-3">
-          {policies.map((p) => {
+          {merged.map((p) => {
             const selected = p.id === activeId
             const over = p.load > p.budget
             const color = priorityColor[p.priority] ?? 'var(--cyan)'
             return (
               <li key={p.id}>
                 <button
-                  onClick={() => setActiveId(p.id)}
+                  onClick={() => { setActiveId(p.id); setDeleteConfirm(false) }}
                   className={cn(
                     'w-full rounded-xl border p-4 text-left transition-colors',
                     selected ? 'border-cyan bg-card' : 'border-border bg-card/50 hover:bg-card',
@@ -234,12 +267,46 @@ export function FlowBoard({ initialPolicies }: Props) {
 
           <button
             onClick={deployPolicyChange}
-            disabled={isPending}
+            disabled={isPending || isDeleting}
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
             Deploy policy change
           </button>
+
+          {/* Delete section */}
+          {deleteConfirm ? (
+            <div className="mt-3 rounded-xl border border-coral/30 bg-coral/5 p-3">
+              <p className="text-xs font-medium text-coral">Delete &ldquo;{active.name}&rdquo;?</p>
+              <p className="mt-1 text-xs text-muted-foreground">This action cannot be undone.</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : null}
+                  Yes, delete
+                </button>
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                  className="flex-1 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleDeleteRequest}
+              disabled={isPending || isDeleting}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-coral/40 hover:bg-coral/5 hover:text-coral disabled:opacity-60"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              Delete policy
+            </button>
+          )}
         </div>
       </aside>
     </div>

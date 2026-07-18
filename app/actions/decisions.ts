@@ -88,6 +88,9 @@ export async function applyDecisionAction(id: string, input: z.infer<typeof Acti
         : `Operator ${session.user.name ?? session.user.email} rolled back mitigation — Payments circuit reset.`,
   })
 
+  // Revalidate both pages: decisions shows the updated status, command-center
+  // reflects the node state change triggered by a rollback.
   revalidatePath('/decisions')
+  revalidatePath('/command-center')
   return updated
 }

@@ -22,9 +22,7 @@ const healthLabel: Record<ServiceNode['health'], string> = {
 
 export function CommandConsole() {
   const { nodes } = useLiveWithDb()
-  const [selectedId, setSelectedId] = useState<string>(
-    () => '',
-  )
+  const [selectedId, setSelectedId] = useState<string>(() => '')
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -84,7 +82,10 @@ export function CommandConsole() {
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Inspecting</p>
             <h3 className="mt-0.5 text-xl font-semibold text-foreground">{selected.name}</h3>
-            <p className="text-xs text-muted-foreground">{selected.group}</p>
+            {/* Show group/layer only when it has a meaningful value; fall back to node id */}
+            {(selected.group || selected.id) && (
+              <p className="text-xs text-muted-foreground">{selected.group || selected.id}</p>
+            )}
           </div>
           <span
             className={cn(

@@ -289,6 +289,8 @@ function applyPayload(payload: TelemetryPayload) {
 const publicPaths = ['/sign-in', '/sign-up']
 let isAuthenticated = typeof window !== 'undefined' ? !publicPaths.includes(window.location.pathname) : true
 let isConnecting = false
+let retryDelay = 2000
+let retryTimer: ReturnType<typeof setTimeout> | null = null
 
 async function loadSnapshot(): Promise<boolean> {
   const response = await fetch('/api/telemetry/snapshot', { cache: 'no-store' })
@@ -299,6 +301,19 @@ async function loadSnapshot(): Promise<boolean> {
   if (!response.ok) return true
   applyPayload(await response.json())
   return true
+}
+
+function scheduleReconnect() {
+  if (retryTimer !== null) return // already scheduled
+  if (subscribers === 0) return   // nobody is listening
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    // Reset auth flag — the user may have signed in since the last failure.
+    isAuthenticated = true
+    start()
+  }, retryDelay)
+  // Exponential backoff, capped at 30 s.
+  retryDelay = Math.min(retryDelay * 2, 30_000)
 }
 
 function start() {
@@ -312,6 +327,10 @@ function start() {
     }
 
     eventSource = new EventSource('/api/telemetry/stream')
+    eventSource.onopen = () => {
+      // Connection established — reset backoff.
+      retryDelay = 2000
+    }
     eventSource.onmessage = (event) => {
       try {
         applyPayload(JSON.parse(event.data))
@@ -323,16 +342,23 @@ function start() {
       eventSource?.close()
       eventSource = null
       isConnecting = false
+      scheduleReconnect()
     }
   }).catch(() => {
     isConnecting = false
+    scheduleReconnect()
   })
 }
 
 function stop() {
+  if (retryTimer !== null) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
   eventSource?.close()
   eventSource = null
   isConnecting = false
+  retryDelay = 2000
 }
 
 function subscribe(listener: () => void) {
