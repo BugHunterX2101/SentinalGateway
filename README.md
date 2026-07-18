@@ -878,30 +878,6 @@ Two utility classes are available globally:
 
 ---
 
-## Recent Changes
-
-### v2.1 — UI/UX & Reliability Pass
-
-- **Auth form redesign** — error messages use design-system coral tokens; back-to-overview link prevents user dead-ends; password hint on sign-up
-- **Context-aware CTAs** — landing page hero adapts: guests see "Get Started Free" and "Sign In"; authenticated operators see "Open Command Center" and "Inspect Decisions"
-- **Decisions page error boundary** — `getDecisions()` is now wrapped in `.catch(() => [])` so a database error shows a clean empty state instead of crashing the page
-- **Export audit button** — no longer silently swallows errors; shows a coral error message; filenames include the date (`sentinel-audit-2026-07-18.csv`)
-- **Budget slider floor** — minimum value raised from 0 to 10 to prevent accidental zero-allocation of a policy's capacity budget
-- **`force-dynamic`** — command center and decisions pages opt out of static caching to ensure fresh auth checks on every request
-- **LiveMetricsBar** — corrected thresholds (p99 > 150ms, error > 2%); changed "Mitigations" to "Circuits" for mobile clarity; added `aria-label` and `title` attributes
-
-### v2.0 — Core Feature Release
-
-- SSE exponential-backoff reconnect — stream auto-recovers after network drops (2s → 4s → 8s → 30s cap)
-- Decision inspector — browse all 50 decisions, not just the latest; scrollable sidebar selector with keyed remounting
-- Delete policy — two-step confirmation UI in the Flow Canvas editor
-- SVG gradient fix — sparkline gradients no longer bleed across instances (using `useId()`)
-- Dual `revalidatePath` — rolling back a decision refreshes both `/decisions` and `/command-center`
-- Auth rate limiter — Edge middleware limits `/api/auth/*` to 10 req/min per IP with `Retry-After` headers
-- Empty group guard — node inspector no longer renders a blank card when `layer` is unset
-
----
-
 ## Contributing
 
 Contributions are welcome. Please follow this workflow:
