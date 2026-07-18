@@ -90,11 +90,11 @@ export function DecisionInspector({ decisions }: Props) {
         </ul>
       </div>
 
-      {/* Reasoning trace for selected decision */}
-      <DecisionTrace decision={selected} />
+      {/* Reasoning trace for selected decision — keyed so React resets state on selection change */}
+      <DecisionTrace key={selected?.id ?? 'empty-trace'} decision={selected} />
 
-      {/* Summary + operator controls for selected decision */}
-      <DecisionSummary decision={selected} />
+      {/* Summary + operator controls — keyed for same reason */}
+      <DecisionSummary key={selected?.id ?? 'empty-summary'} decision={selected} />
     </div>
   )
 }
