@@ -15,7 +15,7 @@ export async function GET() {
     assertDatabaseConfigured()
   } catch (err) {
     return Response.json(
-      { error: err instanceof Error ? err.message : 'Database unavailable' },
+      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
       { status: 503 },
     )
   }
@@ -58,7 +58,12 @@ export async function GET() {
         policyCount: policies.length,
       },
     })
-  } catch {
-    return Response.json({ error: 'Database unavailable' }, { status: 503 })
+  } catch (err) {
+    // Surface the underlying driver error — invaluable for diagnosing
+    // serverless/Neon connectivity issues (connection limits, SSL, allowlists).
+    return Response.json(
+      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
+      { status: 503 },
+    )
   }
 }

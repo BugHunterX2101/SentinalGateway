@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     assertDatabaseConfigured()
   } catch (err) {
     return Response.json(
-      { error: err instanceof Error ? err.message : 'Database unavailable' },
+      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
       { status: 503 },
     )
   }
