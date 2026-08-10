@@ -19,7 +19,9 @@ export const pool = new Pool({
   maxUses: 500,
 })
 
-export const db = drizzle(pool, { schema })export function assertDatabaseConfigured() {
+export const db = drizzle(pool, { schema })
+
+export function assertDatabaseConfigured() {
   if (!connectionString) {
     throw new Error('Neon DATABASE_URL is not configured')
   }
