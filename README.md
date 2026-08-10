@@ -37,6 +37,20 @@ The control plane is a live, real-time web application backed by **Neon PostgreS
 
 ---
 
+## Product Highlights
+
+- **An autonomous closed loop, running live.** SENSE - DECIDE - ACT - EXPLAIN executes continuously in the deployed demo: every 1.5-second telemetry tick evolves each service's metrics, anomaly score, circuit state, and audit trail with no human in the loop.
+- **Learned baselines, not static thresholds.** Every service carries its own seasonal envelope (RPS, p99, error rate, anomaly score), defined once in `lib/baselines.ts` and shared by the simulation engine, decision rollback, and operator resets.
+- **Self-healing circuit breakers.** When a service breaches its envelope, its circuit opens, a full decision with step-by-step reasoning is persisted, and the mesh recovers automatically — observable live on the demo deployment.
+- **Glass-box decisions.** Each automated intervention stores a `decision_steps` trace (phase, label, confidence, per-step latency). Operators approve or roll back from the Decision Inspector; a rollback restores the exact node affected, to its learned baseline.
+- **Durable operator holds.** Snoozing a node writes a `snoozed_until` hold that the simulation respects, so a flagged service stays quiet until the hold expires or the operator acts again.
+- **Zero-restart policy deployment.** Compose priority lanes, budgets, and strategies on the Flow Canvas and deploy instantly; the change reaches every connected client on the next SSE tick.
+- **Dual-format audit log.** Every operator action and automated mitigation is recorded with type, actor, subject, and detail, exportable as JSON or CSV.
+- **Public guest telemetry.** Unauthenticated visitors see live aggregate KPIs (throughput, p99, error rate, circuit count) through a sanitized endpoint that never exposes topology.
+- **Edge-level auth protection.** A sliding-window rate limiter (10 requests / 60 seconds / IP) and a session guard run in middleware, before a request ever reaches the application server.
+
+---
+
 ## At a Glance
 
 | Traditional API Gateway | Sentinel Gateway |
@@ -52,7 +66,7 @@ The control plane is a live, real-time web application backed by **Neon PostgreS
 
 ## Live Demo
 
-**[sentinalgateway.vercel.app](https://sentinalgateway.vercel.app)** — Create a free operator account and explore the live control plane. The demo runs against a real Neon database; telemetry ticks every 1.5 seconds.
+**[sentinalgateway-eta.vercel.app](https://sentinalgateway-eta.vercel.app)** — Create a free operator account and explore the live control plane. The demo runs against a real, seeded Neon database; the telemetry stream ticks every 1.5 seconds and drives the simulation forward — metrics drift, circuits open, decisions are written with full reasoning traces, and the mesh self-heals back to baseline, all in real time.
 
 ---
 
@@ -817,6 +831,22 @@ Open [http://localhost:3000](http://localhost:3000), click **Get Started Free**,
 
 ---
 
+## Changelog
+
+### v2.2 — Live Simulation and Production Hardening
+
+- **Live simulation engine** (`lib/sim.ts`), wired into the SSE telemetry stream: evolves node metrics every tick, pushes services into incidents, opens circuits, writes auditable SENSE - DECIDE - ACT - EXPLAIN decisions, and lets the mesh self-heal. A staleness guard ensures multiple open stream clients never fight over writes.
+- **Idempotent seed script** (`scripts/seed.mjs`, `pnpm seed`): populates the 8-node demo mesh, global shaping policies, sample decisions with full step traces, and audit history. Safe to re-run.
+- **Correctness fixes:** decision rollback restores the node the decision actually targeted (`decisions.node_id`); snooze is durable via `service_nodes.snoozed_until`; global demo policies are deployable by every operator through a shared visibility rule; guests see live stats via `/api/telemetry/public`; the auth rate limiter no longer leaks a module-scope timer; the auth route no longer re-wraps Better Auth responses (dropping `Set-Cookie` was possible); React duplicate-key and hydration-mismatch errors eliminated.
+- **Serverless database tuning:** the pg pool is tuned for Vercel (small `max`, connection timeouts, `maxUses` recycling) and accepts both `DATABASE_URL` and `DATABASE_URL_1` connection-string variables.
+- **Deployment support:** documentation for first-deploy schema push, environment-variable troubleshooting, and a verified live deployment on Vercel.
+
+### v2.1 — Baseline Release
+
+- Initial control plane: live service map, KPI cards, anomaly feed, traffic-shaping Flow Canvas, Decision Inspector with approve/rollback, dual-format audit export, Better Auth sign-in, and edge middleware guards.
+
+---
+
 ## Deployment
 
 ### Deploy to Vercel (Recommended)
@@ -831,21 +861,29 @@ Set these in your Vercel project dashboard under **Settings → Environment Vari
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | Neon PostgreSQL connection string with `?sslmode=require` |
 | `BETTER_AUTH_SECRET` | Yes | 32+ character random secret. Generate: `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | Yes | Your Vercel production URL, e.g. `https://sentinalgateway.vercel.app` |
+| `BETTER_AUTH_URL` | Yes | Your Vercel production URL, e.g. `https://sentinalgateway-eta.vercel.app` |
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | Yes | Same as above — exposed to the browser for auth client config |
 
 > `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are injected by Vercel automatically. The auth server reads them to populate `trustedOrigins` — no manual configuration required.
 
-#### ⚠️ First deploy: push the schema to the production database
+#### First deploy: push the schema to the production database
 
 The Vercel `DATABASE_URL` often points at a **different Neon database** than your local one (or a brand-new one). If the deployed app shows `relation "service_nodes" does not exist` (or `shaping_policies` / `decisions`), the schema was never created there. Fix it once, from the project root, using the **production** connection string:
 
 ```bash
-DATABASE_URL="postgresql://...your-production-neon-url..." pnpm dlx drizzle-kit push
+DATABASE_URL="postgresql://...your-production-neon-url..." pnpm exec drizzle-kit push --force
 DATABASE_URL="postgresql://...your-production-neon-url..." pnpm seed
 ```
 
 This creates all 9 tables and populates the demo mesh. After that, the deployed app behaves exactly like local — the SSE simulation drives incidents, decisions, and self-healing live.
+
+#### Deployment Troubleshooting
+
+**The site loads but every API call returns `relation ... does not exist`.** The production database has no schema. Point `DATABASE_URL` (or `DATABASE_URL_1`) at a migrated, seeded database, or run the two commands above against the production connection string.
+
+**Environment variables do not take effect after saving.** Vercel bakes environment variables into each deployment — changes require a redeploy. Confirm the variable is saved for the **Production** environment and in the **project that actually serves your domain**. Auto-generated URLs (like `sentinalgateway-eta.vercel.app`) are project-specific, and a repository connected to two similarly named Vercel projects is a common source of confusion — check the project name in the URL you visit.
+
+**The connection string lives under a suffixed variable (`DATABASE_URL_1`).** The application accepts both `DATABASE_URL` and `DATABASE_URL_1`, preferring the suffixed variable when both are set, so a deployment configured through Vercel's "Add another" flow works without code changes.
 
 #### Build Settings
 

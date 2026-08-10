@@ -20,5 +20,8 @@ smoke-cookies.txt
 # TypeScript build artifacts
 *.tsbuildinfo
 
+# Local tooling / desktop app data
+.freebuff/
+
 # Drizzle migrations (schema lives in lib/db/schema.ts; push from source)
 drizzle/
