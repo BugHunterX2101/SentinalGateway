@@ -23,7 +23,7 @@ export async function GET() {
   try {
     const [nodes, policies] = await Promise.all([
       db.select().from(serviceNodes),
-      db.select({ id: shapingPolicies.id }).from(shapingPolicies),
+      db.select({ id: shapingPolicies.id, state: shapingPolicies.state }).from(shapingPolicies),
     ])
 
     const toNumber = (v: string | number) => {
@@ -45,6 +45,9 @@ export async function GET() {
           ).toFixed(2),
         )
       : 0
+    const peakAnomaly = nodes.length
+      ? Math.max(0, ...nodes.map((n) => toNumber(n.anomalyScore)))
+      : 0
 
     return Response.json({
       nodes: [],
@@ -56,6 +59,10 @@ export async function GET() {
         mitigations: nodes.filter((n) => n.circuit !== 'closed').length,
         nodeCount: nodes.length,
         policyCount: policies.length,
+        peakAnomaly,
+        activePolicies: policies.filter((p) => p.state === 'active').length,
+        openCircuits: nodes.filter((n) => n.circuit !== 'closed').length,
+        decisionConfidence: Math.round(peakAnomaly),
       },
     })
   } catch (err) {

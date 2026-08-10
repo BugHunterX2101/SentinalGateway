@@ -831,22 +831,6 @@ Open [http://localhost:3000](http://localhost:3000), click **Get Started Free**,
 
 ---
 
-## Changelog
-
-### v2.2 — Live Simulation and Production Hardening
-
-- **Live simulation engine** (`lib/sim.ts`), wired into the SSE telemetry stream: evolves node metrics every tick, pushes services into incidents, opens circuits, writes auditable SENSE - DECIDE - ACT - EXPLAIN decisions, and lets the mesh self-heal. A staleness guard ensures multiple open stream clients never fight over writes.
-- **Idempotent seed script** (`scripts/seed.mjs`, `pnpm seed`): populates the 8-node demo mesh, global shaping policies, sample decisions with full step traces, and audit history. Safe to re-run.
-- **Correctness fixes:** decision rollback restores the node the decision actually targeted (`decisions.node_id`); snooze is durable via `service_nodes.snoozed_until`; global demo policies are deployable by every operator through a shared visibility rule; guests see live stats via `/api/telemetry/public`; the auth rate limiter no longer leaks a module-scope timer; the auth route no longer re-wraps Better Auth responses (dropping `Set-Cookie` was possible); React duplicate-key and hydration-mismatch errors eliminated.
-- **Serverless database tuning:** the pg pool is tuned for Vercel (small `max`, connection timeouts, `maxUses` recycling) and accepts both `DATABASE_URL` and `DATABASE_URL_1` connection-string variables.
-- **Deployment support:** documentation for first-deploy schema push, environment-variable troubleshooting, and a verified live deployment on Vercel.
-
-### v2.1 — Baseline Release
-
-- Initial control plane: live service map, KPI cards, anomaly feed, traffic-shaping Flow Canvas, Decision Inspector with approve/rollback, dual-format audit export, Better Auth sign-in, and edge middleware guards.
-
----
-
 ## Deployment
 
 ### Deploy to Vercel (Recommended)
@@ -887,58 +871,7 @@ This creates all 9 tables and populates the demo mesh. After that, the deployed 
 
 #### Build Settings
 
-Vercel auto-detects Next.js. If you encounter peer dependency issues, the `vercel.json` in this repo sets the install command to `npm install --legacy-peer-deps` to handle them gracefully.
-
----
-
-## Design System
-
-Sentinel Gateway uses a custom design system built on **Tailwind CSS v4** with a palette inspired by deep-ocean bioluminescence — dark indigo depths, electric cyan glows, and vivid coral alerts.
-
-### Colour Tokens
-
-| Token | Hex | Role |
-|-------|-----|------|
-| `--background` | `#f4f6fb` | Pearl white page canvas |
-| `--foreground` | `#1a237e` | Deep indigo body text |
-| `--primary` | `#1a237e` | Buttons, links, interactive primary |
-| `--cyan` | `#00b8d4` | Healthy nodes, live indicators, brand accent |
-| `--coral` | `#ff5252` | Critical anomalies, errors, destructive actions |
-| `--amber` | `#ffab40` | Degraded state, warnings, elevated latency |
-| `--tangerine` | `#ff7a1a` | Half-open circuit breaker state |
-| `--muted-foreground` | `#5b6296` | Secondary text, labels |
-
-### Glassmorphism Utilities
-
-Two utility classes are available globally:
-
-```css
-/* Subtle layered glass — used for cards and panels */
-.glass {
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.8) inset,
-    0 20px 50px -24px rgba(26, 35, 126, 0.28);
-}
-
-/* Stronger glass — used for hero panels and CTA banners */
-.glass-strong {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 24px 60px -28px rgba(26, 35, 126, 0.35);
-}
-```
-
-### Custom Animations
-
-| Class | Keyframe | Duration | Usage |
-|-------|----------|----------|-------|
-| `animate-sentinel-pulse` | Scale 1→1.35, opacity 1→0.55 | 1.6s | Live indicator dots |
-| `animate-sentinel-float` | TranslateY 0→-8px | 6s | Floating 3D hero element |
-| `animate-sentinel-dash` | stroke-dashoffset sweep | — | Animated SVG edges |
+Vercel auto-detects Next.js. The `vercel.json` in this repo pins the build command to `next build` and the install command to `pnpm install --no-frozen-lockfile` so the lockfile-free pnpm workspace installs cleanly in Vercel's build environment.
 
 ---
 

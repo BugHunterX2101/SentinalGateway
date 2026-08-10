@@ -20,11 +20,15 @@ const accentText: Record<Accent, string> = {
 }
 
 export function FeatureGrid() {
-  const { nodes, policies, decisionConfidence } = useLive()
+  const { kpis } = useLive()
 
-  const peakAnomaly = Math.max(0, ...nodes.map((n) => n.anomalyScore))
-  const shaping = policies.filter((p) => p.state === 'active').length
-  const openCircuits = nodes.filter((n) => n.circuit !== 'closed').length
+  // Authenticated flows compute these aggregates from the live node/policy
+  // lists; the guest path receives them pre-aggregated via kpis from
+  // /api/telemetry/public. Reading kpis keeps both modes consistent.
+  const peakAnomaly = kpis.peakAnomaly
+  const shaping = kpis.activePolicies
+  const openCircuits = kpis.openCircuits
+  const decisionConfidence = kpis.decisionConfidence
 
   const features: {
     icon: LucideIcon

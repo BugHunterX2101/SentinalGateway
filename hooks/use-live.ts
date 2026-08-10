@@ -62,6 +62,10 @@ export interface LiveState {
     p99: number
     errorRate: number
     mitigations: number
+    peakAnomaly: number
+    activePolicies: number
+    openCircuits: number
+    decisionConfidence: number
   }
   series: {
     rps: number[]
@@ -110,6 +114,10 @@ type TelemetryPayload = {
     p99?: number
     errorRate?: number
     mitigations?: number
+    peakAnomaly?: number
+    activePolicies?: number
+    openCircuits?: number
+    decisionConfidence?: number
   }
 }
 
@@ -120,7 +128,16 @@ const emptyState: LiveState = {
   startedAt: 0,
   nodes: [],
   edges: [],
-  kpis: { rps: 0, p99: 0, errorRate: 0, mitigations: 0 },
+  kpis: {
+    rps: 0,
+    p99: 0,
+    errorRate: 0,
+    mitigations: 0,
+    peakAnomaly: 0,
+    activePolicies: 0,
+    openCircuits: 0,
+    decisionConfidence: 0,
+  },
   series: { rps: [], latency: [], error: [], mitigations: [] },
   anomalies: [],
   policies: [],
@@ -184,11 +201,16 @@ function aggregate(nodes: ServiceNode[]) {
       )
     : 0
 
+  const peakAnomaly = nodes.length ? Math.max(0, ...nodes.map((node) => node.anomalyScore)) : 0
   return {
     rps: Math.round(rps),
     p99,
     errorRate,
     mitigations: nodes.filter((node) => node.circuit !== 'closed').length,
+    peakAnomaly,
+    activePolicies: 0, // computed from the policy list in applyPayload
+    openCircuits: nodes.filter((node) => node.circuit !== 'closed').length,
+    decisionConfidence: Math.round(peakAnomaly),
   }
 }
 
@@ -277,8 +299,18 @@ function applyPayload(payload: TelemetryPayload) {
         p99: payload.kpis.p99 ?? computedKpis.p99,
         errorRate: payload.kpis.errorRate ?? computedKpis.errorRate,
         mitigations: payload.kpis.mitigations ?? computedKpis.mitigations,
+        peakAnomaly: payload.kpis.peakAnomaly ?? computedKpis.peakAnomaly,
+        activePolicies: payload.kpis.activePolicies ?? computedKpis.activePolicies,
+        openCircuits: payload.kpis.openCircuits ?? computedKpis.openCircuits,
+        decisionConfidence: payload.kpis.decisionConfidence ?? computedKpis.decisionConfidence,
       }
     : computedKpis
+  // Authenticated payloads carry the policy list — derive the active count
+  // locally. Guest payloads already include it in kpis (their policy list
+  // is intentionally empty), so leave it untouched.
+  if (!payload.kpis) {
+    kpis.activePolicies = policies.filter((policy) => policy.state === 'active').length
+  }
   const elapsedSeconds = state.startedAt ? Math.max(0, (now - state.startedAt) / 1000) : 0
   state = {
     tick: state.tick + 1,
@@ -294,7 +326,7 @@ function applyPayload(payload: TelemetryPayload) {
     },
     anomalies: anomaliesFrom(nodes, now),
     policies,
-    decisionConfidence: Math.round(Math.max(0, ...nodes.map((node) => node.anomalyScore))),
+    decisionConfidence: kpis.decisionConfidence,
     requestsProtected: Math.round(kpis.rps * elapsedSeconds),
     frozen: false,
   }
