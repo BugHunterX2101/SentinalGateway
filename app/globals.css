@@ -111,6 +111,21 @@
 }
 
 @layer components {
+  /* Fixed full-page backdrop for the 3D background scene. The gradient keeps
+     every page visually grounded even before/without the WebGL canvas, and
+     the canvas (transparent) renders on top of it. */
+  .app-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    background:
+      radial-gradient(1100px 720px at 12% -8%, rgba(0, 184, 212, 0.1), transparent 60%),
+      radial-gradient(900px 640px at 88% 6%, rgba(255, 82, 82, 0.07), transparent 55%),
+      radial-gradient(1000px 800px at 50% 112%, rgba(124, 77, 255, 0.07), transparent 60%);
+  }
+
   /* Glassmorphism panel — layered, airy, subtle borders + drop shadow */
   .glass {
     background: rgba(255, 255, 255, 0.62);

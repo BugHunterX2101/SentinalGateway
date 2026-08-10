@@ -434,7 +434,7 @@ erDiagram
 
 ```mermaid
 graph TD
-    Root["RootLayout — app/layout.tsx<br/>(Three.js AmbientScene)"]
+    Root["RootLayout — app/layout.tsx<br/>(BackgroundScene, lazy client mount)"]
 
     Root --> LP["/ Landing Page"]
     Root --> CP["/command-center"]
@@ -595,7 +595,7 @@ SentinalGateway/
 │   ├── sign-in/page.tsx            # Public — email sign-in
 │   ├── sign-up/page.tsx            # Public — operator registration
 │   ├── globals.css                 # Design tokens, glass utilities, keyframes
-│   ├── layout.tsx                  # Root layout — AmbientScene, Analytics
+│   ├── layout.tsx                  # Root layout — BackgroundScene, Analytics
 │   └── page.tsx                    # Landing page (auth-aware CTAs)
 │
 ├── components/
@@ -621,7 +621,8 @@ SentinalGateway/
 │   │   └── hero-section.tsx        # Hero copy + live stat row + 3D scene
 │   │
 │   ├── three/
-│   │   ├── ambient-scene.tsx       # Background particle field (Three.js)
+│   │   ├── background-scene.tsx    # Live-data 3D backdrop (per-route themes)
+│   │   ├── background-scene-host.tsx # Client-only lazy mount of the backdrop
 │   │   └── hero-scene.tsx          # Hero rotating prism (Three.js)
 │   │
 │   ├── ui/                         # shadcn/ui base primitives
