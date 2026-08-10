@@ -1,11 +1,13 @@
 // Real-time Server-Sent Events stream for Sentinel Gateway telemetry.
-// Reads current node health and policy state from Neon on every tick and
-// streams a JSON payload to all subscribed clients.
+// On every tick it (1) advances the live simulation — evolving node metrics,
+// self-healing circuits, and generating auditable decisions — then (2) reads
+// the current topology from Neon and streams it to all subscribed clients.
 
 import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { policyVisibility } from '@/lib/db/visibility'
+import { simulateTick } from '@/lib/sim'
 import { headers } from 'next/headers'
 
 export const runtime = 'nodejs'
@@ -43,9 +45,14 @@ export async function GET(req: Request) {
       async function tick() {
         if (!alive) return
         try {
+          // Advance the demo's nervous system before reading state. The
+          // staleness guard inside simulateTick means only one writer per
+          // tick window wins, so multiple open streams never fight.
+          await simulateTick()
+
           const [nodes, policies] = await Promise.all([
             db.select().from(serviceNodes),
-            db.select().from(shapingPolicies).where(eq(shapingPolicies.createdBy, userId)),
+            db.select().from(shapingPolicies).where(policyVisibility(userId)),
           ])
 
           const payload = JSON.stringify({ nodes, policies })

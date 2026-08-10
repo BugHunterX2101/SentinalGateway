@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { decisions, decisionSteps, auditLog, serviceNodes } from '@/lib/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { baselineFor } from '@/lib/baselines'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -63,19 +64,23 @@ export async function applyDecisionAction(id: string, input: z.infer<typeof Acti
 
   if (!updated) throw new Error('Decision not found')
 
-  // On rollback: restore the affected node (Payments) in DB
+  // On rollback: restore whichever node this decision targeted, using its
+  // learned baseline. Falls back to the payments node for legacy rows that
+  // predate the node_id column.
   if (action === 'rollback') {
+    const nodeId = existing.nodeId ?? 'payments'
+    const base = baselineFor(nodeId)
     await db
       .update(serviceNodes)
       .set({
         health: 'healthy',
         circuit: 'closed',
-        errorRate: '0.4',
-        p99: '48',
-        anomalyScore: '4',
+        errorRate: base?.errorRate ?? '0.4',
+        p99: base?.p99 ?? '48',
+        anomalyScore: '0',
         updatedAt: new Date(),
       })
-      .where(eq(serviceNodes.id, 'payments'))
+      .where(eq(serviceNodes.id, nodeId))
   }
 
   await db.insert(auditLog).values({

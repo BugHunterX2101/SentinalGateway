@@ -16,3 +16,9 @@ node_modules
 .pnpm-store/
 smoke-cookies.txt
 .DS_Store
+
+# TypeScript build artifacts
+*.tsbuildinfo
+
+# Drizzle migrations (schema lives in lib/db/schema.ts; push from source)
+drizzle/

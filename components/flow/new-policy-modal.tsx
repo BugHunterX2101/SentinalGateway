@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Plus, CheckCircle } from 'lucide-react'
 import { createPolicy } from '@/app/actions/policies'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,7 @@ const STRATEGIES = [
 ]
 
 export function NewPolicyModal() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +58,9 @@ export function NewPolicyModal() {
           description: form.description,
         })
         setSaved(true)
+        // Re-fetch the server component so the new lane appears in the board
+        // immediately (FlowBoard picks it up from the refreshed props).
+        router.refresh()
         setTimeout(() => handleClose(), 1500)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to create policy')

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { DecisionTrace } from './decision-trace'
 import { DecisionSummary } from './decision-summary'
@@ -18,9 +19,9 @@ function outcomeStyle(outcome: string, status: string) {
   return 'bg-amber/15 text-tangerine'
 }
 
-function relativeTime(date: Date | string): string {
+function relativeTime(date: Date | string, now: number): string {
   const d = date instanceof Date ? date : new Date(date)
-  const s = Math.max(0, Math.round((Date.now() - d.getTime()) / 1000))
+  const s = Math.max(0, Math.round((now - d.getTime()) / 1000))
   if (s < 60) return `${s}s ago`
   const m = Math.floor(s / 60)
   if (m < 60) return `${m}m ago`
@@ -30,7 +31,25 @@ function relativeTime(date: Date | string): string {
 }
 
 export function DecisionInspector({ decisions }: Props) {
+  const router = useRouter()
   const [selectedId, setSelectedId] = useState<string>(decisions[0]?.id ?? '')
+  // `now` stays null until after mount so SSR and the first client render
+  // agree (avoids hydration mismatches from Date.now()); it then ticks so
+  // the relative timestamps stay fresh.
+  const [now, setNow] = useState<number | null>(null)
+
+  // New decisions arrive from the simulation engine on the SSE stream, but
+  // this page is server-rendered — refresh the server component periodically
+  // so the list stays current without a manual reload.
+  useEffect(() => {
+    setNow(Date.now())
+    const refreshId = setInterval(() => router.refresh(), 15000)
+    const clockId = setInterval(() => setNow(Date.now()), 15000)
+    return () => {
+      clearInterval(refreshId)
+      clearInterval(clockId)
+    }
+  }, [router])
 
   const selected = decisions.find((d) => d.id === selectedId) ?? decisions[0] ?? null
 
@@ -81,7 +100,7 @@ export function DecisionInspector({ decisions }: Props) {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {relativeTime(d.createdAt)} · {d.steps.length} steps
+                    {now === null ? 'just now' : relativeTime(d.createdAt, now)} · {d.steps.length} steps
                   </p>
                 </button>
               </li>
@@ -90,11 +109,12 @@ export function DecisionInspector({ decisions }: Props) {
         </ul>
       </div>
 
-      {/* Reasoning trace for selected decision — keyed so React resets state on selection change */}
-      <DecisionTrace key={selected?.id ?? 'empty-trace'} decision={selected} />
+      {/* Reasoning trace for selected decision — keyed so React resets state on selection change.
+          Prefix keeps sibling keys unique (trace vs summary). */}
+      <DecisionTrace key={`trace-${selected?.id ?? 'empty'}`} decision={selected} />
 
       {/* Summary + operator controls — keyed for same reason */}
-      <DecisionSummary key={selected?.id ?? 'empty-summary'} decision={selected} />
+      <DecisionSummary key={`summary-${selected?.id ?? 'empty'}`} decision={selected} />
     </div>
   )
 }

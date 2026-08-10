@@ -74,6 +74,8 @@ export const serviceNodes = pgTable('service_nodes', {
   errorRate: numeric('error_rate').notNull().default('0'),
   anomalyScore: numeric('anomaly_score').notNull().default('0'),
   upstream: text('upstream').array().notNull().default([]),
+  // Operator "snooze" holds a node out of the simulation until this time.
+  snoozedUntil: timestamp('snoozed_until'),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
@@ -93,6 +95,10 @@ export const shapingPolicies = pgTable('shaping_policies', {
 
 export const decisions = pgTable('decisions', {
   id: text('id').primaryKey(),
+  // Which service node this automated decision targeted. Used by the
+  // simulation engine for cooldowns and by operator rollbacks to restore
+  // the correct service (instead of hardcoding a single node).
+  nodeId: text('node_id'),
   headline: text('headline').notNull(),
   outcome: text('outcome').notNull().default('Pending'),
   confidence: numeric('confidence').notNull().default('0'),

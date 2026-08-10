@@ -572,7 +572,8 @@ SentinalGateway/
 │   │   │   └── [id]/route.ts       # PATCH update, DELETE delete
 │   │   └── telemetry/
 │   │       ├── snapshot/route.ts   # GET one-shot JSON hydration
-│   │       └── stream/route.ts     # GET SSE stream — 1.5 s ticks
+│   │       ├── stream/route.ts     # GET SSE stream — 1.5 s ticks + simulation
+│   │       └── public/route.ts     # GET aggregate KPIs for guests (no auth)
 │   │
 │   ├── command-center/page.tsx     # Protected — live map + KPIs
 │   ├── decisions/page.tsx          # Protected — decision inspector
@@ -621,17 +622,21 @@ SentinalGateway/
 │
 ├── hooks/
 │   └── use-live.ts                 # SSE singleton — subscribe/unsubscribe,
-│                                   # applyPayload, exponential-backoff reconnect
+│                                   # applyPayload, exponential-backoff reconnect,
+│                                   # public-poll fallback for guests
 │
 ├── lib/
 │   ├── auth.ts                     # Better Auth server config + trusted origins
 │   ├── auth-client.ts              # Better Auth browser client
-│   ├── rate-limit.ts               # Sliding-window rate limiter (in-memory)
+│   ├── baselines.ts                # Shared per-node baselines (reset/rollback/sim/seed)
+│   ├── rate-limit.ts               # Sliding-window rate limiter (in-memory, no timers)
 │   ├── session.ts                  # getCurrentUser() helper
+│   ├── sim.ts                      # Live simulation engine (metrics, incidents, decisions)
 │   ├── utils.ts                    # cn() className merger
 │   └── db/
 │       ├── index.ts                # Drizzle + pg Pool connection
-│       └── schema.ts               # All table definitions (7 tables)
+│       ├── schema.ts               # All table definitions
+│       └── visibility.ts           # Policy visibility (user-owned + global demo lanes)
 │
 ├── proxy.ts                        # Next.js Edge Middleware — auth guard + rate limit
 ├── vercel.json                     # Vercel deployment configuration
@@ -651,7 +656,10 @@ SentinalGateway/
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/telemetry/snapshot` | GET | Required | Single JSON snapshot of nodes + policies for initial hydration |
-| `/api/telemetry/stream` | GET (SSE) | Required | Live EventSource stream — ticks every 1.5 seconds |
+| `/api/telemetry/stream` | GET (SSE) | Required | Live EventSource stream — ticks every 1.5 seconds. Advances the simulation, then streams the updated topology |
+| `/api/telemetry/public` | GET | None | Sanitized aggregate KPIs (RPS / p99 / error / circuits) for the public landing page — no topology is exposed |
+
+> **Snooze:** the `snooze` node action writes a `snoozed_until` hold on the row. The simulation respects the hold, so a snoozed node stays quiet until it expires (5 minutes) or the operator acts again.
 
 **SSE Event format:**
 ```json
@@ -714,7 +722,7 @@ Valid state values: `active` · `paused` · `learning`
 { "action": "rollback" }
 ```
 
-A `rollback` resets the affected node to `healthy` / `closed` / `anomalyScore: 0` in addition to updating the decision status.
+A `rollback` resets the affected node (tracked via the decision's `node_id` column) to its learned baseline — `healthy` / `closed` / `anomalyScore: 0` — in addition to updating the decision status.
 
 ---
 
@@ -753,6 +761,12 @@ pnpm install
 cp .env.example .env.local
 ```
 
+Then run the seed to populate demo data:
+
+```bash
+pnpm seed
+```
+
 Open `.env.local` and fill in the values:
 
 ```env
@@ -784,11 +798,12 @@ Verify by checking your Neon console — you should see 9 tables:
 ### 4. Seed Example Data (Optional)
 
 ```bash
-# If a seed script is available in scripts/
-node scripts/seed.js
+pnpm seed
 ```
 
-This populates example service nodes, decisions with step traces, and a few shaping policies so the dashboard has something to display immediately.
+This populates the 8-node demo service mesh, three global shaping policies, sample decisions with full step traces, and a short audit history so every page of the control plane has data immediately. It is **idempotent** — safe to re-run; service nodes are upserted by id and policies/decisions are skipped if their ids already exist.
+
+> **Live simulation:** once an SSE client connects, the telemetry stream itself drives the demo forward. Every 1.5 s tick evolves each node's metrics, occasionally pushes a service into an incident (opening its circuit and writing a full SENSE → DECIDE → ACT → EXPLAIN decision plus an audit entry), then lets it self-heal back to baseline. No cron jobs, no separate processes — open the Command Center and watch it happen.
 
 ---
 

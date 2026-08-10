@@ -3,6 +3,7 @@
 import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { shapingPolicies, auditLog } from '@/lib/db/schema'
+import { policyVisibility } from '@/lib/db/visibility'
 import { and, eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
@@ -37,7 +38,7 @@ export async function getPolicies() {
   return db
     .select()
     .from(shapingPolicies)
-    .where(eq(shapingPolicies.createdBy, session.user.id))
+    .where(policyVisibility(session.user.id))
     .orderBy(shapingPolicies.createdAt)
 }
 
@@ -46,7 +47,7 @@ export async function createPolicy(input: z.infer<typeof PolicyCreateSchema>) {
   assertDatabaseConfigured()
   const data = PolicyCreateSchema.parse(input)
 
-  const id = `pol-${Date.now().toString(36)}`
+  const id = `pol-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
   const [policy] = await db
     .insert(shapingPolicies)
     .values({
@@ -87,10 +88,12 @@ export async function updatePolicy(
   if (data.state !== undefined) patch.state = data.state
   if (data.priority !== undefined) patch.priority = data.priority
 
+  // Match the read visibility rule: operators may update any policy they can
+  // see, including the global demo lanes owned by 'operator'.
   const [updated] = await db
     .update(shapingPolicies)
     .set(patch)
-    .where(and(eq(shapingPolicies.id, policyId), eq(shapingPolicies.createdBy, session.user.id)))
+    .where(and(eq(shapingPolicies.id, policyId), policyVisibility(session.user.id)))
     .returning()
 
   if (!updated) throw new Error('Policy not found')
@@ -113,7 +116,7 @@ export async function deletePolicy(id: string) {
 
   const [deleted] = await db
     .delete(shapingPolicies)
-    .where(and(eq(shapingPolicies.id, policyId), eq(shapingPolicies.createdBy, session.user.id)))
+    .where(and(eq(shapingPolicies.id, policyId), policyVisibility(session.user.id)))
     .returning()
 
   if (!deleted) throw new Error('Policy not found')

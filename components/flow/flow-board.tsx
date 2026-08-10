@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { useLiveWithDb } from '@/hooks/use-live'
 import { updatePolicy, deletePolicy } from '@/app/actions/policies'
@@ -30,6 +30,13 @@ export function FlowBoard({ initialPolicies }: Props) {
   // Live SSE stream keeps load percentages up to date; merge with DB policies.
   const { policies: livePolicies } = useLiveWithDb()
   const [policies, setPolicies] = useState<DbPolicy[]>(initialPolicies)
+
+  // The parent page is server-rendered; NewPolicyModal triggers router.refresh()
+  // after creating a policy, which re-renders this board with fresh props.
+  // Sync local state so newly created lanes appear without a manual reload.
+  useEffect(() => {
+    setPolicies(initialPolicies)
+  }, [initialPolicies])
   const [budgetOverride, setBudgetOverride] = useState<Record<string, number>>({})
   const [activeId, setActiveId] = useState(initialPolicies[0]?.id ?? '')
   const [deployFeedback, setDeployFeedback] = useState<string | null>(null)

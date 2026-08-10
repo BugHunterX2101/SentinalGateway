@@ -14,7 +14,7 @@ function getClientIp(request: NextRequest): string {
 async function rateLimitedHandler(
   request: NextRequest,
   handler: (req: Request) => Promise<Response>
-): Promise<NextResponse> {
+): Promise<Response> {
   const ip = getClientIp(request)
   const { allowed, resetAt } = await authRateLimiter(`auth:${ip}`)
 
@@ -29,13 +29,12 @@ async function rateLimitedHandler(
     })
   }
 
+  // Mutate the handler's own response instead of re-wrapping it in a new
+  // NextResponse — re-wrapping can drop Set-Cookie headers, which would
+  // silently break session creation/sign-in.
   const response = await handler(request)
-  const nextResponse = new NextResponse(response.body, {
-    status: response.status,
-    headers: response.headers,
-  })
-  nextResponse.headers.set('X-RateLimit-Reset', resetAt.toString())
-  return nextResponse
+  response.headers.set('X-RateLimit-Reset', resetAt.toString())
+  return response
 }
 
 export async function GET(request: NextRequest) {

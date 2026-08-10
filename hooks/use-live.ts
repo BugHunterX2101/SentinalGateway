@@ -103,6 +103,14 @@ type DbPolicy = {
 type TelemetryPayload = {
   nodes?: DbNode[]
   policies?: DbPolicy[]
+  // Aggregate-only payload from /api/telemetry/public (guests on the
+  // landing page). Overrides the kpis computed from the node list.
+  kpis?: {
+    rps?: number
+    p99?: number
+    errorRate?: number
+    mitigations?: number
+  }
 }
 
 const SERIES_LEN = 48
@@ -262,7 +270,15 @@ function applyPayload(payload: TelemetryPayload) {
     load: toNumber(policy.load),
   }))
 
-  const kpis = aggregate(nodes)
+  const computedKpis = aggregate(nodes)
+  const kpis = payload.kpis
+    ? {
+        rps: payload.kpis.rps ?? computedKpis.rps,
+        p99: payload.kpis.p99 ?? computedKpis.p99,
+        errorRate: payload.kpis.errorRate ?? computedKpis.errorRate,
+        mitigations: payload.kpis.mitigations ?? computedKpis.mitigations,
+      }
+    : computedKpis
   const elapsedSeconds = state.startedAt ? Math.max(0, (now - state.startedAt) / 1000) : 0
   state = {
     tick: state.tick + 1,
@@ -291,16 +307,46 @@ let isAuthenticated = typeof window !== 'undefined' ? !publicPaths.includes(wind
 let isConnecting = false
 let retryDelay = 2000
 let retryTimer: ReturnType<typeof setTimeout> | null = null
+let publicTimer: ReturnType<typeof setInterval> | null = null
+
+async function loadPublicSnapshot(): Promise<void> {
+  try {
+    const response = await fetch('/api/telemetry/public', { cache: 'no-store' })
+    if (response.ok) applyPayload(await response.json())
+  } catch {
+    // Public landing telemetry is best-effort — never break the page over it.
+  }
+}
 
 async function loadSnapshot(): Promise<boolean> {
   const response = await fetch('/api/telemetry/snapshot', { cache: 'no-store' })
   if (response.status === 401) {
     isAuthenticated = false
+    // Guests still get live aggregate stats on the landing page.
+    await loadPublicSnapshot()
     return false
   }
   if (!response.ok) return true
   applyPayload(await response.json())
   return true
+}
+
+// Guests cannot open the authenticated EventSource, so poll the public
+// aggregate endpoint on a slow cadence instead — keeps the landing page's
+// live stats and tick counter moving.
+function startPublicPolling() {
+  if (publicTimer !== null) return
+  void loadPublicSnapshot()
+  publicTimer = setInterval(() => {
+    void loadPublicSnapshot()
+  }, 5000)
+}
+
+function stopPublicPolling() {
+  if (publicTimer !== null) {
+    clearInterval(publicTimer)
+    publicTimer = null
+  }
 }
 
 function scheduleReconnect() {
@@ -317,14 +363,22 @@ function scheduleReconnect() {
 }
 
 function start() {
-  if (eventSource || isConnecting || typeof window === 'undefined' || !isAuthenticated) return
+  if (eventSource || isConnecting || typeof window === 'undefined') return
+  if (!isAuthenticated) {
+    startPublicPolling()
+    return
+  }
   isConnecting = true
 
   void loadSnapshot().then((authenticated) => {
+    isConnecting = false
     if (!authenticated) {
-      isConnecting = false
+      startPublicPolling()
       return
     }
+    // The subscribing component may have unmounted while the snapshot was
+    // in flight — never leave an orphan EventSource behind.
+    if (subscribers === 0) return
 
     eventSource = new EventSource('/api/telemetry/stream')
     eventSource.onopen = () => {
@@ -355,6 +409,7 @@ function stop() {
     clearTimeout(retryTimer)
     retryTimer = null
   }
+  stopPublicPolling()
   eventSource?.close()
   eventSource = null
   isConnecting = false

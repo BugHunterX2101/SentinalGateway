@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function DecisionSummary({ decision }: Props) {
-  const { decisionConfidence, requestsProtected } = useLive()
+  const { decisionConfidence: liveConfidence, requestsProtected: liveProtected } = useLive()
   const [status, setStatus] = useState<string>(decision?.status ?? 'active')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -41,6 +41,13 @@ export function DecisionSummary({ decision }: Props) {
   const isActive = status === 'active'
   const isApproved = status === 'approved'
 
+  // Prefer the decision's own persisted values; fall back to live session
+  // aggregates for rows that predate the fields.
+  const confidence = decision.confidence ? Math.round(Number(decision.confidence)) : liveConfidence
+  const requestsProtected = decision.requestsProtected
+    ? String(decision.requestsProtected)
+    : liveProtected.toLocaleString('en-US')
+
   return (
     <div className="flex flex-col gap-4">
       <div className="glass-strong rounded-2xl p-6">
@@ -60,33 +67,29 @@ export function DecisionSummary({ decision }: Props) {
         <h2 className="mt-4 text-balance text-xl font-semibold leading-snug text-foreground">
           {decision.headline}
         </h2>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {decision.createdAt instanceof Date
-            ? decision.createdAt.toLocaleString()
-            : String(decision.createdAt)}
-        </p>
+        <p className="mt-1.5 text-xs text-muted-foreground">{formatTimestamp(decision.createdAt)}</p>
 
         <div className="mt-5">
           <div className="flex items-center justify-between text-xs">
             <span className="flex items-center gap-1.5 text-muted-foreground">
               <span className="h-1.5 w-1.5 animate-sentinel-pulse rounded-full bg-cyan" />
-              Model confidence · live
+              Model confidence
             </span>
             <span className="font-mono font-semibold tabular-nums text-foreground">
-              {decisionConfidence}%
+              {confidence}%
             </span>
           </div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-secondary">
             <div
               className="h-full rounded-full bg-cyan transition-all duration-700"
-              style={{ width: `${decisionConfidence}%` }}
+              style={{ width: `${confidence}%` }}
             />
           </div>
         </div>
 
         <dl className="mt-5 grid grid-cols-2 gap-3">
           <Meta label="Time to decide" value={decision.latencyToDecide} />
-          <Meta label="Requests protected" value={requestsProtected.toLocaleString('en-US')} />
+          <Meta label="Requests protected" value={requestsProtected} />
         </dl>
 
         <p className="mt-4 rounded-xl border border-border bg-card/60 p-3 text-xs leading-relaxed text-muted-foreground">
@@ -143,6 +146,15 @@ export function DecisionSummary({ decision }: Props) {
       </div>
     </div>
   )
+}
+
+// Deterministic across server and client — toLocaleString() would format in
+// the server's timezone during SSR and the browser's after hydration, causing
+// a React hydration mismatch.
+function formatTimestamp(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return `${date.toISOString().replace('T', ' ').slice(0, 16)} UTC`
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
