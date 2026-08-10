@@ -836,6 +836,17 @@ Set these in your Vercel project dashboard under **Settings → Environment Vari
 
 > `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL` are injected by Vercel automatically. The auth server reads them to populate `trustedOrigins` — no manual configuration required.
 
+#### ⚠️ First deploy: push the schema to the production database
+
+The Vercel `DATABASE_URL` often points at a **different Neon database** than your local one (or a brand-new one). If the deployed app shows `relation "service_nodes" does not exist` (or `shaping_policies` / `decisions`), the schema was never created there. Fix it once, from the project root, using the **production** connection string:
+
+```bash
+DATABASE_URL="postgresql://...your-production-neon-url..." pnpm dlx drizzle-kit push
+DATABASE_URL="postgresql://...your-production-neon-url..." pnpm seed
+```
+
+This creates all 9 tables and populates the demo mesh. After that, the deployed app behaves exactly like local — the SSE simulation drives incidents, decisions, and self-healing live.
+
 #### Build Settings
 
 Vercel auto-detects Next.js. If you encounter peer dependency issues, the `vercel.json` in this repo sets the install command to `npm install --legacy-peer-deps` to handle them gracefully.
