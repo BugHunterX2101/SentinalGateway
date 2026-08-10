@@ -19,10 +19,20 @@ export const pool = new Pool({
   maxUses: 500,
 })
 
-export const db = drizzle(pool, { schema })
-
-export function assertDatabaseConfigured() {
+export const db = drizzle(pool, { schema })export function assertDatabaseConfigured() {
   if (!connectionString) {
     throw new Error('Neon DATABASE_URL is not configured')
   }
 }
+
+// Drizzle wraps driver failures in DrizzleQueryError — the actual pg error
+// (ECONNREFUSED, too many connections, SSL, auth, ...) lives in `cause`.
+// Unwrap it so serverless/Neon connectivity issues are diagnosable.
+export function dbErrorDetail(err: unknown): string {
+  if (!(err instanceof Error)) return String(err)
+  const cause = (err as { cause?: unknown }).cause
+  if (cause instanceof Error && cause.message && cause.message !== err.message) {
+    return `${err.message} → ${cause.message}`
+  }
+  return err.message
+}

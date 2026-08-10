@@ -2,7 +2,7 @@
 // Used for initial hydration or polling clients that do not support SSE.
 
 import { auth } from '@/lib/auth'
-import { assertDatabaseConfigured, db } from '@/lib/db'
+import { assertDatabaseConfigured, db, dbErrorDetail } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
 import { policyVisibility } from '@/lib/db/visibility'
 import { headers } from 'next/headers'
@@ -19,7 +19,7 @@ export async function GET() {
     assertDatabaseConfigured()
   } catch (err) {
     return Response.json(
-      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
+      { error: 'Database unavailable', detail: dbErrorDetail(err) },
       { status: 503 },
     )
   }
@@ -33,7 +33,7 @@ export async function GET() {
     return Response.json({ nodes, policies })
   } catch (err) {
     return Response.json(
-      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
+      { error: 'Database unavailable', detail: dbErrorDetail(err) },
       { status: 503 },
     )
   }

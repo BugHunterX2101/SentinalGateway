@@ -4,7 +4,7 @@
 // the current topology from Neon and streams it to all subscribed clients.
 
 import { auth } from '@/lib/auth'
-import { assertDatabaseConfigured, db } from '@/lib/db'
+import { assertDatabaseConfigured, db, dbErrorDetail } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
 import { policyVisibility } from '@/lib/db/visibility'
 import { simulateTick } from '@/lib/sim'
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     assertDatabaseConfigured()
   } catch (err) {
     return Response.json(
-      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
+      { error: 'Database unavailable', detail: dbErrorDetail(err) },
       { status: 503 },
     )
   }

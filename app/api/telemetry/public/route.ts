@@ -5,7 +5,7 @@
 // topology) so guests see a living overview while protected pages keep the
 // full node/policy detail behind the session check.
 
-import { assertDatabaseConfigured, db } from '@/lib/db'
+import { assertDatabaseConfigured, db, dbErrorDetail } from '@/lib/db'
 import { serviceNodes, shapingPolicies } from '@/lib/db/schema'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +15,7 @@ export async function GET() {
     assertDatabaseConfigured()
   } catch (err) {
     return Response.json(
-      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
+      { error: 'Database unavailable', detail: dbErrorDetail(err) },
       { status: 503 },
     )
   }
@@ -62,7 +62,7 @@ export async function GET() {
     // Surface the underlying driver error — invaluable for diagnosing
     // serverless/Neon connectivity issues (connection limits, SSL, allowlists).
     return Response.json(
-      { error: 'Database unavailable', detail: err instanceof Error ? err.message : String(err) },
+      { error: 'Database unavailable', detail: dbErrorDetail(err) },
       { status: 503 },
     )
   }
