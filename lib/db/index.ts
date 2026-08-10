@@ -2,10 +2,11 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import * as schema from './schema'
 
-// Canonical var is DATABASE_URL. DATABASE_URL_1 is accepted as a fallback
-// for deployments whose env var got named with a suffix (e.g. Vercel's
-// "Add another" flow creating DATABASE_URL_1).
-const connectionString = process.env.DATABASE_URL || process.env.DATABASE_URL_1
+// The working connection string for this deployment lives in DATABASE_URL_1
+// (Vercel's "Add another" flow creates suffixed names and can leave a stale
+// DATABASE_URL behind). Prefer the explicitly-set suffixed var, then fall
+// back to the canonical DATABASE_URL.
+const connectionString = process.env.DATABASE_URL_1 || process.env.DATABASE_URL
 
 // Tuned for serverless (Vercel) + Neon:
 // - Small `max`: Vercel keeps many warm function instances, each holding a
