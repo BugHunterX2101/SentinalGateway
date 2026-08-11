@@ -27,6 +27,9 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
+    // Minimum enforced by Better Auth; character-class requirements are
+    // checked in the auth route (lib/security.ts) before sign-up proceeds.
+    minPasswordLength: 10,
   },
   trustedOrigins: [
     ...(process.env.V0_RUNTIME_URL ? [process.env.V0_RUNTIME_URL] : []),

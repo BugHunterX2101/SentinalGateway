@@ -4,7 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
-import { ShieldCheck, Loader2, AlertCircle, ArrowLeft } from 'lucide-react'
+import { ShieldCheck, Loader2, AlertCircle, ArrowLeft, Check } from 'lucide-react'
+import { checkPasswordStrength, PASSWORD_RULES } from '@/lib/password-rules'
 
 interface AuthFormProps {
   mode: 'sign-in' | 'sign-up'
@@ -19,6 +20,8 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const passwordCheck = mode === 'sign-up' ? checkPasswordStrength(password) : null
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -26,6 +29,9 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
 
     try {
       if (mode === 'sign-up') {
+        if (!passwordCheck?.ok) {
+          throw new Error('Password does not meet the security requirements below.')
+        }
         const result = await authClient.signUp.email({ email, password, name })
         if (result.error) throw new Error(result.error.message)
       } else {
@@ -70,6 +76,12 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Honeypot: invisible to humans, irresistible to bots. */}
+        <div className="hidden" aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+        </div>
+
         {mode === 'sign-up' && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="name" className="text-sm font-medium text-foreground">
@@ -119,7 +131,24 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
             className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
           {mode === 'sign-up' && (
-            <p className="text-[11px] text-muted-foreground">Minimum 8 characters required.</p>
+            <ul className="flex flex-col gap-0.5 pt-1">
+              {PASSWORD_RULES.map((rule) => {
+                const passed = rule.test(password)
+                return (
+                  <li
+                    key={rule.key}
+                    className={`flex items-center gap-1.5 text-[11px] ${passed ? 'text-emerald-600' : 'text-muted-foreground'}`}
+                  >
+                    {passed ? (
+                      <Check className="h-3 w-3 shrink-0" aria-hidden />
+                    ) : (
+                      <span className="h-3 w-3 shrink-0 rounded-full border border-current opacity-60" aria-hidden />
+                    )}
+                    {rule.label}
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </div>
 

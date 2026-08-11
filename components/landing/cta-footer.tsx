@@ -28,11 +28,30 @@ export function CtaFooter() {
         </div>
       </div>
 
-      <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
+      <div className="mt-8 flex flex-col items-center justify-between gap-6 border-t border-border pt-8 sm:flex-row">
         <div className="flex items-center gap-2">
           <SentinelLogo />
           <span className="text-sm font-semibold text-foreground">Sentinel Gateway</span>
         </div>
+
+        <nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <Link href="/" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Overview
+          </Link>
+          <Link href="/command-center" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Command Center
+          </Link>
+          <Link href="/flow-canvas" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Flow Canvas
+          </Link>
+          <Link href="/decisions" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Decisions
+          </Link>
+          <Link href="/sign-in" className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Sign in
+          </Link>
+        </nav>
+
         <p className="text-xs text-muted-foreground">
           Sense · Decide · Act · Explain — a self-aware API gateway.
         </p>

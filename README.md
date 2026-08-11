@@ -47,7 +47,7 @@ The control plane is a live, real-time web application backed by **Neon PostgreS
 - **Zero-restart policy deployment.** Compose priority lanes, budgets, and strategies on the Flow Canvas and deploy instantly; the change reaches every connected client on the next SSE tick.
 - **Dual-format audit log.** Every operator action and automated mitigation is recorded with type, actor, subject, and detail, exportable as JSON or CSV.
 - **Public guest telemetry.** Unauthenticated visitors see live aggregate KPIs (throughput, p99, error rate, circuit count) through a sanitized endpoint that never exposes topology.
-- **Edge-level auth protection.** A sliding-window rate limiter (10 requests / 60 seconds / IP) and a session guard run in middleware, before a request ever reaches the application server.
+- **Edge-level auth protection.** A sliding-window rate limiter (10 requests / 60 seconds / IP) and a session guard run in middleware, before a request ever reaches the application server. Sign-up additionally requires a verified email provider (well-known domain or MX-record check), a five-rule strong password, per-IP sign-up rate limiting, a honeypot trap for bots, and a temporary lockout after repeated failed sign-ins.
 - **Live 3D background across every page.** A lightweight WebGL scene (particle fields + wireframe orbits, no lights or post-processing) renders behind every route. It is lazy-mounted so it never blocks first paint, its motion tracks the live telemetry stream (incidents accelerate the field and fire expanding pulse rings), each route gets its own colour palette and motion personality, the frame loop pauses when the tab is hidden, and it respects `prefers-reduced-motion`.
 - **Low-latency navigation.** Every dashboard route ships a `loading.tsx` skeleton that paints instantly during client-side navigation; the auth session is resolved once per request (memoized) instead of once per page/action; page data loads in parallel; the decisions list fetches all step traces in a single query (no N+1); and Vercel functions are pinned to `sin1`, colocated with the Neon database.
 
@@ -504,37 +504,14 @@ graph TD
 
 ## Features
 
-### Real-Time Anomaly Detection
-
-A persistent Server-Sent Events stream polls Neon every 1.5 seconds. Each service node carries a live `anomaly_score` — the Anomaly Feed surfaces the top signals by severity, with metric name, baseline vs. observed delta, and model confidence. There are no static thresholds: the system learns each service's seasonal envelope.
-
-### Adaptive Traffic Shaping
-
-The Flow Canvas lets operators compose priority lanes, fair-queuing strategies, and load-shedding budgets without touching a config file. Each policy deploys instantly via a PATCH request that mutates the `shaping_policies` table and triggers an SSE tick — the FlowBoard's live load bar reflects the change within 1.5 seconds.
-
-### Self-Healing Circuit Breakers
-
-The Nervous System Map is an SVG canvas wired directly to the SSE stream. When a node's `circuit` column transitions from `closed` → `open`, its edge colour shifts from cyan to coral in real time. Operators can apply (`mitigate`), temporarily hold (`snooze`), or reset any node with one click — each action is validated, written to the DB, and streamed back.
-
-### Glass-Box Explainability
-
-Every automated decision is persisted as a `decisions` row with up to N `decision_steps` rows (one per reasoning phase). The Decision Inspector renders the full trace in a scrollable timeline — phase badge, confidence bar, time delta, and the model's reasoning text. Operators can `approve` or `rollback` any decision; a rollback resets the affected node and updates both the decision status and the audit log.
-
-### Durable Audit Log
-
-Every state change — operator action or automated mitigation — is appended to `audit_log` with a typed entry (`type`, `actor`, `subject`, `detail`, `created_at`). The `/api/audit` endpoint serves the log as JSON or CSV (via `Accept` header negotiation). The Export button on the Decisions page downloads a date-stamped CSV.
-
-### Edge Auth Rate Limiting
-
-Auth endpoints (`/api/auth/*`) are guarded by an in-memory sliding-window rate limiter running at the Edge (`proxy.ts`). Limit: 10 requests per 60 seconds per IP. Exceeding the limit returns `429 Too Many Requests` with `Retry-After` and `X-RateLimit-Reset` headers.
-
-### Live 3D Background
-
-A fixed, pointer-events-none WebGL backdrop renders behind every page (`components/three/background-scene.tsx`), mounted lazily through a client-only host so Three.js never ships in the initial HTML. The scene is deliberately cheap — two `Points` clouds and a pair of wireframe torus rings, no lights or post-processing — and it is genuinely reactive: particle drift pace scales with the live error rate / p99, and open circuits or high anomaly scores fire expanding pulse rings. Each route gets its own palette and motion personality (landing cyan/coral, command center teal, flow canvas violet, decisions amber, auth indigo), the frame loop pauses when the tab is hidden, and reduced-motion users get a static gradient only.
-
-### Low-Latency Navigation
-
-Client-side navigation paints an instant skeleton (`loading.tsx` per dashboard route) while the server streams the real content. Server render is kept to the minimum round trips: the auth session is memoized per request with React `cache()` and shared by middleware consumers (previously up to 3 lookups per render), pages resolve the session and their data concurrently, and the decisions list loads all 50 step traces in one `IN` query instead of 50 separate ones. Deployment functions are pinned to the `sin1` region in `vercel.json`, so the SSE and API round trips to Neon stay inside one AWS region.
+- **Real-time anomaly detection.** A persistent SSE stream ticks every 1.5 seconds; each service compares itself against a learned seasonal baseline and surfaces top signals with confidence — no static thresholds.
+- **Adaptive traffic shaping.** Compose priority lanes and budgets on the Flow Canvas and deploy with zero restarts; the change streams to every connected client on the next tick.
+- **Self-healing circuit breakers.** Circuits open on breach, edges on the live service map turn coral, and the mesh recovers on its own — with one-click mitigate / snooze / reset for operators.
+- **Glass-box decisions.** Every intervention stores a full reasoning trace (phase, confidence, per-step latency); operators approve or roll back with a single click, and a rollback restores the exact node affected.
+- **Durable audit log.** Every operator action and automated mitigation is recorded as a typed entry and exported as JSON or CSV.
+- **Hardened authentication.** Sign-ups are restricted to verified email providers (well-known domains or MX-record verified, disposable domains rejected), passwords must meet a five-rule strength policy, failed sign-ins trigger a temporary per-account lockout, sign-up is rate-limited per IP, and a honeypot field quietly drops bots. Auth endpoints are additionally throttled at the edge (10 req / 60 s / IP) with `Retry-After` headers.
+- **Live 3D background.** A lazy-mounted WebGL backdrop animates behind every page, reacts to live telemetry (incidents fire pulse rings), pauses when the tab is hidden, and respects `prefers-reduced-motion`.
+- **Low-latency navigation.** Instant loading skeletons, one memoized session lookup per request, parallel page data, a single-query decisions fetch (no N+1), and Vercel functions pinned next to the database in `sin1`.
 
 ---
 
@@ -544,7 +521,7 @@ Client-side navigation paints an instant skeleton (`loading.tsx` per dashboard r
 |-------|------------|-------------|
 | `/` | Public | Landing — live telemetry stats, feature grid, closed-loop explainer, CTA. CTAs are auth-aware (guests see Sign Up; operators see Command Center). |
 | `/sign-in` | Public | Email + password sign-in. Redirects authenticated users away. Back-to-home link. |
-| `/sign-up` | Public | Operator account registration. Redirects authenticated users away. |
+| `/sign-up` | Public | Operator account registration — verified email providers only, strong password with live rule checklist. Redirects authenticated users away. |
 | `/command-center` | Protected | Live service map (SVG), KPI cards, anomaly feed, node action controls. |
 | `/flow-canvas` | Protected | Traffic shaping policy list, budget slider, live utilisation bar, create / delete policy. |
 | `/decisions` | Protected | Decision inspector — browse up to 50 decisions, step trace timeline, approve / rollback, CSV export. |
@@ -583,7 +560,8 @@ SentinalGateway/
 │   │
 │   ├── api/
 │   │   ├── auth/
-│   │   │   └── [...all]/route.ts   # Better Auth catch-all handler
+│   │   │   └── [...all]/route.ts   # Better Auth handler + verified-provider
+│   │   │                           # check, password policy, lockout, honeypot
 │   │   ├── audit/route.ts          # GET audit log (JSON or CSV)
 │   │   ├── decisions/
 │   │   │   ├── route.ts            # GET recent decisions with steps
@@ -608,7 +586,9 @@ SentinalGateway/
 │   ├── sign-in/page.tsx            # Public — email sign-in
 │   ├── sign-up/page.tsx            # Public — operator registration
 │   ├── globals.css                 # Design tokens, glass utilities, keyframes
-│   ├── layout.tsx                  # Root layout — BackgroundScene, Analytics
+│   ├── layout.tsx                  # Root layout — BackgroundScene, metadata,
+│   │                               # icons, OpenGraph
+│   ├── not-found.tsx               # Branded 404 page
 │   └── page.tsx                    # Landing page (auth-aware CTAs)
 │
 ├── components/
@@ -657,7 +637,9 @@ SentinalGateway/
 │   ├── auth.ts                     # Better Auth server config + trusted origins
 │   ├── auth-client.ts              # Better Auth browser client
 │   ├── baselines.ts                # Shared per-node baselines (reset/rollback/sim/seed)
+│   ├── password-rules.ts           # Client-safe password policy (5 rules)
 │   ├── rate-limit.ts               # Sliding-window rate limiter (in-memory, no timers)
+│   ├── security.ts                 # Verified-email-provider check + lockout store
 │   ├── session.ts                  # Memoized per-request session + getCurrentUser()
 │   ├── sim.ts                      # Live simulation engine (metrics, incidents, decisions)
 │   ├── utils.ts                    # cn() className merger
@@ -671,6 +653,10 @@ SentinalGateway/
 ├── drizzle.config.ts               # Drizzle Kit schema + migrations config
 ├── next.config.mjs                 # Next.js config
 ├── tsconfig.json                   # TypeScript config
+├── scripts/
+│   ├── check-neon-schema.mjs       # Verify tables exist on the target database
+│   ├── generate-brand-assets.mjs   # Regenerate icon.png / og-image.png
+│   └── seed.mjs                    # Idempotent demo-data seeder
 └── package.json                    # Dependencies and scripts
 ```
 

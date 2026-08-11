@@ -56,3 +56,10 @@ export const authRateLimiter = createRateLimiter({
   windowMs: 60_000,
   maxRequests: 10,
 })
+
+// Stricter budget for account creation: 8 sign-ups per hour per IP, layered
+// on top of the general auth limiter.
+export const signUpRateLimiter = createRateLimiter({
+  windowMs: 60 * 60_000,
+  maxRequests: 8,
+})
