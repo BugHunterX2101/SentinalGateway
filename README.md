@@ -48,6 +48,8 @@ The control plane is a live, real-time web application backed by **Neon PostgreS
 - **Dual-format audit log.** Every operator action and automated mitigation is recorded with type, actor, subject, and detail, exportable as JSON or CSV.
 - **Public guest telemetry.** Unauthenticated visitors see live aggregate KPIs (throughput, p99, error rate, circuit count) through a sanitized endpoint that never exposes topology.
 - **Edge-level auth protection.** A sliding-window rate limiter (10 requests / 60 seconds / IP) and a session guard run in middleware, before a request ever reaches the application server.
+- **Live 3D background across every page.** A lightweight WebGL scene (particle fields + wireframe orbits, no lights or post-processing) renders behind every route. It is lazy-mounted so it never blocks first paint, its motion tracks the live telemetry stream (incidents accelerate the field and fire expanding pulse rings), each route gets its own colour palette and motion personality, the frame loop pauses when the tab is hidden, and it respects `prefers-reduced-motion`.
+- **Low-latency navigation.** Every dashboard route ships a `loading.tsx` skeleton that paints instantly during client-side navigation; the auth session is resolved once per request (memoized) instead of once per page/action; page data loads in parallel; the decisions list fetches all step traces in a single query (no N+1); and Vercel functions are pinned to `sin1`, colocated with the Neon database.
 
 ---
 
@@ -526,6 +528,14 @@ Every state change — operator action or automated mitigation — is appended t
 
 Auth endpoints (`/api/auth/*`) are guarded by an in-memory sliding-window rate limiter running at the Edge (`proxy.ts`). Limit: 10 requests per 60 seconds per IP. Exceeding the limit returns `429 Too Many Requests` with `Retry-After` and `X-RateLimit-Reset` headers.
 
+### Live 3D Background
+
+A fixed, pointer-events-none WebGL backdrop renders behind every page (`components/three/background-scene.tsx`), mounted lazily through a client-only host so Three.js never ships in the initial HTML. The scene is deliberately cheap — two `Points` clouds and a pair of wireframe torus rings, no lights or post-processing — and it is genuinely reactive: particle drift pace scales with the live error rate / p99, and open circuits or high anomaly scores fire expanding pulse rings. Each route gets its own palette and motion personality (landing cyan/coral, command center teal, flow canvas violet, decisions amber, auth indigo), the frame loop pauses when the tab is hidden, and reduced-motion users get a static gradient only.
+
+### Low-Latency Navigation
+
+Client-side navigation paints an instant skeleton (`loading.tsx` per dashboard route) while the server streams the real content. Server render is kept to the minimum round trips: the auth session is memoized per request with React `cache()` and shared by middleware consumers (previously up to 3 lookups per render), pages resolve the session and their data concurrently, and the decisions list loads all 50 step traces in one `IN` query instead of 50 separate ones. Deployment functions are pinned to the `sin1` region in `vercel.json`, so the SSE and API round trips to Neon stay inside one AWS region.
+
 ---
 
 ## Pages
@@ -554,7 +564,7 @@ Auth endpoints (`/api/auth/*`) are guarded by an in-memory sliding-window rate l
 | Auth | Better Auth (email + password, HttpOnly session cookies) | 1.6 |
 | Validation | Zod | v4 |
 | Real-Time | Server-Sent Events — 1.5 s ticks, singleton with exponential backoff | — |
-| Deployment | Vercel (Edge + Node.js runtime) | — |
+| Deployment | Vercel (Edge + Node.js runtime, functions pinned to `sin1`) | — |
 | Analytics | Vercel Analytics | 1.6 |
 
 ---
@@ -591,7 +601,10 @@ SentinalGateway/
 │   │
 │   ├── command-center/page.tsx     # Protected — live map + KPIs
 │   ├── decisions/page.tsx          # Protected — decision inspector
+│   ├── decisions/loading.tsx       # Route loading skeleton (instant shell)
 │   ├── flow-canvas/page.tsx        # Protected — traffic shaping
+│   ├── flow-canvas/loading.tsx     # Route loading skeleton
+│   ├── command-center/loading.tsx  # Route loading skeleton
 │   ├── sign-in/page.tsx            # Public — email sign-in
 │   ├── sign-up/page.tsx            # Public — operator registration
 │   ├── globals.css                 # Design tokens, glass utilities, keyframes
@@ -599,6 +612,7 @@ SentinalGateway/
 │   └── page.tsx                    # Landing page (auth-aware CTAs)
 │
 ├── components/
+│   ├── route-loading.tsx           # Shared skeleton used by all loading.tsx
 │   ├── command/
 │   │   ├── anomaly-feed.tsx        # Live anomaly signal list
 │   │   ├── command-console.tsx     # NervousSystemMap + node controls
@@ -645,7 +659,7 @@ SentinalGateway/
 │   ├── auth-client.ts              # Better Auth browser client
 │   ├── baselines.ts                # Shared per-node baselines (reset/rollback/sim/seed)
 │   ├── rate-limit.ts               # Sliding-window rate limiter (in-memory, no timers)
-│   ├── session.ts                  # getCurrentUser() helper
+│   ├── session.ts                  # Memoized per-request session + getCurrentUser()
 │   ├── sim.ts                      # Live simulation engine (metrics, incidents, decisions)
 │   ├── utils.ts                    # cn() className merger
 │   └── db/
@@ -657,7 +671,6 @@ SentinalGateway/
 ├── vercel.json                     # Vercel deployment configuration
 ├── drizzle.config.ts               # Drizzle Kit schema + migrations config
 ├── next.config.mjs                 # Next.js config
-├── tailwind.config.ts              # Tailwind CSS v4 config
 ├── tsconfig.json                   # TypeScript config
 └── package.json                    # Dependencies and scripts
 ```
@@ -873,6 +886,10 @@ This creates all 9 tables and populates the demo mesh. After that, the deployed 
 #### Build Settings
 
 Vercel auto-detects Next.js. The `vercel.json` in this repo pins the build command to `next build` and the install command to `pnpm install --no-frozen-lockfile` so the lockfile-free pnpm workspace installs cleanly in Vercel's build environment.
+
+#### Performance
+
+`vercel.json` also pins the function region to `sin1` (Singapore) to colocate with the Neon database (`ap-southeast-1`), so the SSE ticks and API calls pay a same-region hop instead of a trans-Pacific round trip. Combined with per-request session memoization, parallel page data loading, the single-query decisions fetch, and the `loading.tsx` shells, warm navigations and API calls stay well under half a second.
 
 ---
 
