@@ -1,6 +1,6 @@
 'use client'
 
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import * as THREE from 'three'
@@ -10,11 +10,24 @@ import { useLive } from '@/hooks/use-live'
  * Sentinel Gateway background scene.
  *
  * Rendered once per route behind every page (fixed, z-0, pointer-events-none).
- * It is deliberately cheap — Points + basic materials only, no lights, no
- * shadows, no post-processing — so it never competes with the app for frame
- * budget. The animation is driven by the real live telemetry store (the same
- * SSE stream the dashboards use), so incidents visibly accelerate and pulse
- * the field, and every route gets its own colour + motion personality.
+ * A layered, genuinely 3D composition:
+ *
+ *   1. EnergyWave   — a field of points undulating in Y and Z with layered
+ *                     travelling waves: a living surface that churns faster
+ *                     and taller while incidents are live.
+ *   2. Constellation — a slowly rotating shell of nodes linked to their
+ *                     nearest neighbours — the "nervous system" motif.
+ *   3. Shards       — a few drifting wireframe octahedra, hologram fragments.
+ *   4. DriftField   — fast crossing foreground particles for parallax depth.
+ *   5. IncidentPulses — expanding rings fired by real telemetry when a
+ *                     circuit is open or the anomaly score is high.
+ *
+ * Everything is Points / basic materials (no lights, shadows, or
+ * post-processing) so the whole scene costs a few draw calls and never
+ * competes with the app for frame budget. The animation loop pauses when the
+ * tab is hidden, the mouse parallax is window-level, every layer is scaled to
+ * the current camera frustum so nothing ever clips, and reduced-motion users
+ * get the static gradient only.
  */
 
 interface SceneTheme {
@@ -57,6 +70,226 @@ function useDotTexture() {
   }, [])
 }
 
+const CAMERA_Z = 10
+const CAMERA_FOV = 50
+
+// Scale factor that keeps a layer of the given half-extent inside the visible
+// frustum on any screen, with margin for the camera's parallax drift.
+function useFrustumFit(maxHalfExtent: number) {
+  const size = useThree((s) => s.size)
+  return useMemo(() => {
+    const halfH = CAMERA_Z * Math.tan((CAMERA_FOV * Math.PI) / 180 / 2)
+    const halfW = halfH * (size.width / Math.max(1, size.height))
+    return Math.min(1.15, Math.max(0.5, (halfW / maxHalfExtent) * 0.85))
+  }, [size.width, size.height, maxHalfExtent])
+}
+
+function isHidden() {
+  return typeof document !== 'undefined' && document.hidden
+}
+
+interface WaveProps {
+  color: string
+  speedMul: number
+  stress: number
+  intensity: number
+}
+
+// A point surface driven by layered travelling waves — the centrepiece.
+function EnergyWave({ color, speedMul, stress, intensity }: WaveProps) {
+  const ref = useRef<THREE.Points>(null)
+  const tex = useDotTexture()
+  const fit = useFrustumFit(6.2)
+
+  const ROWS = 22
+  const COLS = 42
+  const count = ROWS * COLS
+  const { positions, base } = useMemo(() => {
+    const positions = new Float32Array(count * 3)
+    const base = new Float32Array(count * 2)
+    let i = 0
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        base[i * 2 + 0] = (c / (COLS - 1) - 0.5) * 12.4 // u
+        base[i * 2 + 1] = (r / (ROWS - 1) - 0.5) * 8.6 // v
+        i++
+      }
+    }
+    return { positions, base }
+  }, [count])
+
+  useFrame((state) => {
+    if (isHidden()) return
+    const pts = ref.current
+    if (!pts) return
+    const arr = (pts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
+    const t = state.clock.elapsedTime * (0.55 + speedMul * 0.5) * (1 + stress * 0.45)
+    const amp = (0.85 + intensity * 0.5) * (1 + stress * 0.35)
+    for (let i = 0; i < count; i++) {
+      const u = base[i * 2 + 0]
+      const v = base[i * 2 + 1]
+      const waveY =
+        Math.sin(u * 0.5 + t * 1.1) * 0.9 +
+        Math.sin(v * 0.7 - t * 1.5) * 0.55 +
+        Math.sin((u + v) * 0.32 + t * 0.7) * 0.65
+      arr[i * 3 + 0] = u
+      arr[i * 3 + 1] = v * 0.62 + waveY * amp
+      arr[i * 3 + 2] = Math.sin(u * 0.28 - t * 0.6) * 0.7 * amp + Math.cos(v * 0.34 + t * 0.45) * 0.5 * amp
+    }
+    ;(pts.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
+  })
+
+  return (
+    <points ref={ref} scale={fit}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={count} />
+        <bufferAttribute attach="attributes-uv" args={[base, 2]} count={count} />
+      </bufferGeometry>
+      <pointsMaterial
+        map={tex || undefined}
+        size={0.17}
+        transparent
+        opacity={Math.min(0.8, 0.42 + intensity * 0.25)}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        color={color}
+        sizeAttenuation
+      />
+    </points>
+  )
+}
+
+interface ConstellationProps {
+  color: string
+  glow: string
+  speedMul: number
+}
+
+// A slow shell of linked nodes — the "nervous system" motif, far in the field.
+function Constellation({ color, glow, speedMul }: ConstellationProps) {
+  const group = useRef<THREE.Group>(null)
+  const fit = useFrustumFit(7)
+
+  const { nodePositions, linePositions, nodeCount } = useMemo(() => {
+    const N = 28
+    const R = 6.4
+    const nodes: THREE.Vector3[] = Array.from({ length: N }, () => {
+      const th = Math.acos(2 * Math.random() - 1)
+      const ph = Math.random() * Math.PI * 2
+      return new THREE.Vector3(
+        R * Math.sin(th) * Math.cos(ph),
+        R * Math.sin(th) * Math.sin(ph) * 0.62,
+        R * Math.cos(th) * 0.7,
+      )
+    })
+    const pairs: number[] = []
+    for (let i = 0; i < N; i++) {
+      const dists = nodes
+        .map((n, j) => ({ d: i === j ? Infinity : n.distanceTo(nodes[i]), j }))
+        .sort((a, b) => a.d - b.d)
+      for (const { j } of dists.slice(0, 2)) if (j > i) pairs.push(i, j)
+    }
+    const nodePositions = new Float32Array(N * 3)
+    nodes.forEach((n, i) => {
+      nodePositions[i * 3 + 0] = n.x
+      nodePositions[i * 3 + 1] = n.y
+      nodePositions[i * 3 + 2] = n.z
+    })
+    const linePositions = new Float32Array(pairs.length * 3)
+    pairs.forEach((idx, k) => {
+      const n = nodes[idx]
+      linePositions[k * 3 + 0] = n.x
+      linePositions[k * 3 + 1] = n.y
+      linePositions[k * 3 + 2] = n.z
+    })
+    return { nodePositions, linePositions, nodeCount: N }
+  }, [])
+
+  useFrame((state) => {
+    if (isHidden()) return
+    const g = group.current
+    if (!g) return
+    const t = state.clock.elapsedTime
+    g.rotation.y = t * 0.045 * speedMul
+    g.rotation.x = Math.sin(t * 0.06) * 0.22
+    g.rotation.z = Math.cos(t * 0.05) * 0.12
+  })
+
+  return (
+    <group ref={group} scale={fit}>
+      <points>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[nodePositions, 3]} count={nodeCount} />
+        </bufferGeometry>
+        <pointsMaterial size={0.055} transparent opacity={0.55} depthWrite={false} color={glow} sizeAttenuation />
+      </points>
+      <lineSegments>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[linePositions, 3]} count={linePositions.length / 3} />
+        </bufferGeometry>
+        <lineBasicMaterial color={color} transparent opacity={0.12} depthWrite={false} />
+      </lineSegments>
+    </group>
+  )
+}
+
+interface ShardProps {
+  color: string
+  speedMul: number
+}
+
+// Drifting wireframe fragments — cheap hologram accents.
+function Shards({ color, speedMul }: ShardProps) {
+  const group = useRef<THREE.Group>(null)
+  const fit = useFrustumFit(9)
+
+  const shards = useMemo(() => {
+    const count = 5
+    return Array.from({ length: count }, (_, i) => ({
+      seed: i * 1.7,
+      base: new THREE.Vector3(
+        (Math.random() - 0.5) * 16 * Math.min(1, fit / 0.85),
+        (Math.random() - 0.5) * 8 * Math.min(1, fit / 0.85),
+        -2 - Math.random() * 5,
+      ),
+      scale: 0.22 + Math.random() * 0.34,
+      rx: Math.random() * Math.PI,
+      ry: Math.random() * Math.PI,
+      rz: Math.random() * Math.PI,
+      sx: (Math.random() - 0.5) * 0.55,
+      sy: (Math.random() - 0.5) * 0.55,
+      sz: (Math.random() - 0.5) * 0.55,
+    }))
+  }, [fit])
+
+  useFrame((state) => {
+    if (isHidden()) return
+    const g = group.current
+    if (!g) return
+    const t = state.clock.elapsedTime
+    shards.forEach((s, i) => {
+      const m = g.children[i] as THREE.Mesh | undefined
+      if (!m) return
+      m.rotation.x = s.rx + s.sx * t * speedMul
+      m.rotation.y = s.ry + s.sy * t * speedMul
+      m.rotation.z = s.rz + s.sz * t * speedMul
+      m.position.y = s.base.y + Math.sin(t * 0.35 + s.seed) * 0.35
+      m.position.x = s.base.x + Math.cos(t * 0.22 + s.seed) * 0.4
+    })
+  })
+
+  return (
+    <group ref={group}>
+      {shards.map((s, i) => (
+        <mesh key={i} position={[s.base.x, s.base.y, s.base.z]} scale={s.scale}>
+          <octahedronGeometry args={[1, 0]} />
+          <meshBasicMaterial color={color} wireframe transparent opacity={0.24} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 interface FieldProps {
   count: number
   color: string
@@ -91,8 +324,7 @@ function DriftField({ count, color, dir, depth, size, baseOpacity, speedMul, str
   }, [count, depth])
 
   useFrame((state, delta) => {
-    // Never burn cycles while the tab is hidden.
-    if (typeof document !== 'undefined' && document.hidden) return
+    if (isHidden()) return
     const pts = ref.current
     if (!pts) return
     const arr = (pts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
@@ -131,32 +363,6 @@ function DriftField({ count, color, dir, depth, size, baseOpacity, speedMul, str
   )
 }
 
-// Two thin wireframe orbits — cheap, and their slow tumble gives the whole
-// scene an engineered, living feel without stealing attention.
-function Orbits({ color }: { color: string }) {
-  const group = useRef<THREE.Group>(null)
-  useFrame((state) => {
-    if (typeof document !== 'undefined' && document.hidden) return
-    if (!group.current) return
-    const t = state.clock.elapsedTime
-    group.current.rotation.x = Math.sin(t * 0.12) * 0.5
-    group.current.rotation.y = t * 0.08
-    group.current.rotation.z = Math.cos(t * 0.1) * 0.3
-  })
-  return (
-    <group ref={group}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[4.4, 0.012, 8, 128]} />
-        <meshBasicMaterial color={color} transparent opacity={0.32} depthWrite={false} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2.4, 0.6, 0]}>
-        <torusGeometry args={[6.1, 0.008, 8, 128]} />
-        <meshBasicMaterial color={color} transparent opacity={0.2} depthWrite={false} />
-      </mesh>
-    </group>
-  )
-}
-
 // Expanding rings that fire while an incident is live (open circuit or a
 // high anomaly score) — the background literally reacts to real telemetry.
 function IncidentPulses({ color, active }: { color: string; active: boolean }) {
@@ -170,7 +376,7 @@ function IncidentPulses({ color, active }: { color: string; active: boolean }) {
   const lastSpawn = useRef(-10)
 
   useFrame((state, delta) => {
-    if (typeof document !== 'undefined' && document.hidden) return
+    if (isHidden()) return
     const now = state.clock.elapsedTime
     const rings = pool.current
     if (active && now - lastSpawn.current > 2.4) {
@@ -220,6 +426,32 @@ function IncidentPulses({ color, active }: { color: string; active: boolean }) {
   )
 }
 
+// Window-level mouse parallax + a slow breathing dolly. Every layer is
+// frustum-fitted, so the parallax never exposes an edge.
+function CameraRig({ speedMul }: { speedMul: number }) {
+  const target = useRef({ x: 0, y: 0 })
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      target.current.x = (e.clientX / window.innerWidth) * 2 - 1
+      target.current.y = (e.clientY / window.innerHeight) * 2 - 1
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [])
+  useFrame((state) => {
+    if (isHidden()) return
+    const { camera } = state
+    const t = state.clock.elapsedTime
+    const tx = target.current.x * 0.4 * speedMul
+    const ty = -target.current.y * 0.26 * speedMul
+    camera.position.x += (tx - camera.position.x) * 0.03
+    camera.position.y += (ty - camera.position.y) * 0.03
+    camera.position.z = CAMERA_Z + Math.sin(t * 0.11) * 0.3
+    camera.lookAt(0, 0, 0)
+  })
+  return null
+}
+
 export function BackgroundScene() {
   const pathname = usePathname()
   const theme = THEMES[pathname ?? ''] ?? FALLBACK
@@ -240,23 +472,34 @@ export function BackgroundScene() {
   // Reduced-motion users get the static gradient backdrop only.
   if (reduced) return <div className="app-backdrop" aria-hidden="true" />
 
-  const primaryCount = theme.lite ? 140 : 260
-  const secondaryCount = theme.lite ? 80 : 160
+  const primaryCount = theme.lite ? 150 : 260
+  const secondaryCount = theme.lite ? 60 : 140
 
   return (
     <div className="app-backdrop" aria-hidden="true">
       <Canvas
-        camera={{ position: [0, 0, 10], fov: 50 }}
+        camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }}
         gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
         dpr={[1, 1.5]}
       >
+        <CameraRig speedMul={theme.speed} />
+        <group rotation={[-0.24, 0, 0]}>
+          <EnergyWave
+            color={theme.primary}
+            speedMul={theme.speed}
+            stress={stress}
+            intensity={intensity}
+          />
+        </group>
+        {!theme.lite && <Constellation color={theme.primary} glow={theme.glow} speedMul={theme.speed} />}
+        {!theme.lite && <Shards color={theme.secondary} speedMul={theme.speed} />}
         <DriftField
           count={primaryCount}
           color={theme.primary}
           dir={1}
           depth={[0.5, 3.5]}
-          size={0.18}
-          baseOpacity={0.34}
+          size={0.16}
+          baseOpacity={0.3}
           speedMul={theme.speed}
           stress={stress}
           intensity={intensity}
@@ -267,13 +510,12 @@ export function BackgroundScene() {
           dir={-1}
           depth={[-7, -3]}
           size={0.1}
-          baseOpacity={0.22}
+          baseOpacity={0.2}
           speedMul={theme.speed * 0.8}
           stress={stress}
           intensity={intensity}
         />
-        {!theme.lite && <Orbits color={theme.glow} />}
-        {!theme.lite && <IncidentPulses color={theme.secondary} active={incidentActive} />}
+        <IncidentPulses color={theme.secondary} active={incidentActive} />
       </Canvas>
     </div>
   )
