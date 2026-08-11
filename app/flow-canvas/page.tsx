@@ -15,11 +15,14 @@ export const metadata = {
 }
 
 export default async function FlowCanvasPage() {
-  const user = await getCurrentUser()
+  // Resolve session and policies concurrently (session lookup is memoized
+  // per request, so this is one session read + one policies read in parallel).
+  const [user, policies] = await Promise.all([
+    getCurrentUser().catch(() => null),
+    // Gracefully handle DB errors — show empty board rather than crashing.
+    getPolicies().catch(() => []),
+  ])
   if (!user) redirect('/sign-in')
-
-  // Gracefully handle DB errors — show empty board rather than crashing.
-  const policies = await getPolicies().catch(() => [])
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">

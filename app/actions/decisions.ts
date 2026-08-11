@@ -1,22 +1,21 @@
 'use server'
 
-import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { decisions, decisionSteps, auditLog, serviceNodes } from '@/lib/db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, inArray } from 'drizzle-orm'
 import { baselineFor } from '@/lib/baselines'
-import { headers } from 'next/headers'
+import { getSession } from '@/lib/session'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
-async function getSession() {
-  const session = await auth.api.getSession({ headers: await headers() })
+async function requireSession() {
+  const session = await getSession()
   if (!session?.user) throw new Error('Unauthorized')
   return session
 }
 
 export async function getDecisions() {
-  await getSession()
+  await requireSession()
   assertDatabaseConfigured()
   const rows = await db
     .select()
@@ -24,18 +23,26 @@ export async function getDecisions() {
     .orderBy(desc(decisions.createdAt))
     .limit(50)
 
-  const withSteps = await Promise.all(
-    rows.map(async (d) => {
-      const steps = await db
-        .select()
-        .from(decisionSteps)
-        .where(eq(decisionSteps.decisionId, d.id))
-        .orderBy(decisionSteps.stepIndex)
-      return { ...d, steps }
-    }),
-  )
+  // Fetch the steps for all decisions in ONE query (previously one query per
+  // decision — an N+1 that cost 50+ round-trips on every page load).
+  const ids = rows.map((d) => d.id)
+  const steps =
+    ids.length === 0
+      ? []
+      : await db
+          .select()
+          .from(decisionSteps)
+          .where(inArray(decisionSteps.decisionId, ids))
+          .orderBy(decisionSteps.stepIndex)
 
-  return withSteps
+  const stepsByDecision = new Map<string, typeof steps>()
+  for (const step of steps) {
+    const list = stepsByDecision.get(step.decisionId)
+    if (list) list.push(step)
+    else stepsByDecision.set(step.decisionId, [step])
+  }
+
+  return rows.map((d) => ({ ...d, steps: stepsByDecision.get(d.id) ?? [] }))
 }
 
 const ActionSchema = z.object({
@@ -44,7 +51,7 @@ const ActionSchema = z.object({
 const DecisionIdSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/)
 
 export async function applyDecisionAction(id: string, input: z.infer<typeof ActionSchema>) {
-  const session = await getSession()
+  const session = await requireSession()
   assertDatabaseConfigured()
   const decisionId = DecisionIdSchema.parse(id)
   const { action } = ActionSchema.parse(input)

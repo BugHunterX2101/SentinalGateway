@@ -1,16 +1,15 @@
 'use server'
 
-import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { serviceNodes, auditLog } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { headers } from 'next/headers'
+import { getSession } from '@/lib/session'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { baselineFor } from '@/lib/baselines'
 
-async function getSession() {
-  const session = await auth.api.getSession({ headers: await headers() })
+async function requireSession() {
+  const session = await getSession()
   if (!session?.user) throw new Error('Unauthorized')
   return session
 }
@@ -21,13 +20,13 @@ const NodeActionSchema = z.object({
 const NodeIdSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/)
 
 export async function getNodes() {
-  await getSession()
+  await requireSession()
   assertDatabaseConfigured()
   return db.select().from(serviceNodes)
 }
 
 export async function applyNodeAction(nodeId: string, input: z.infer<typeof NodeActionSchema>) {
-  const session = await getSession()
+  const session = await requireSession()
   assertDatabaseConfigured()
   const id = NodeIdSchema.parse(nodeId)
   const { action } = NodeActionSchema.parse(input)

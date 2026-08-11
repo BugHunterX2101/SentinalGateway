@@ -15,11 +15,14 @@ export const metadata = {
 }
 
 export default async function DecisionsPage() {
-  const user = await getCurrentUser()
+  // Resolve session and decisions concurrently (session lookup is memoized
+  // per request, so this is one session read + one decisions read in parallel).
+  const [user, decisions] = await Promise.all([
+    getCurrentUser().catch(() => null),
+    // Gracefully handle DB errors — show empty state rather than crashing.
+    getDecisions().catch(() => []),
+  ])
   if (!user) redirect('/sign-in')
-
-  // Gracefully handle DB errors — show empty state rather than crashing.
-  const decisions = await getDecisions().catch(() => [])
 
   return (
     <main className="relative z-10 min-h-dvh pb-16">

@@ -1,16 +1,15 @@
 'use server'
 
-import { auth } from '@/lib/auth'
 import { assertDatabaseConfigured, db } from '@/lib/db'
 import { shapingPolicies, auditLog } from '@/lib/db/schema'
 import { policyVisibility } from '@/lib/db/visibility'
+import { getSession } from '@/lib/session'
 import { and, eq } from 'drizzle-orm'
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
-async function getSession() {
-  const session = await auth.api.getSession({ headers: await headers() })
+async function requireSession() {
+  const session = await getSession()
   if (!session?.user) throw new Error('Unauthorized')
   return session
 }
@@ -33,7 +32,7 @@ const PolicyUpdateSchema = z.object({
 const PolicyIdSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/)
 
 export async function getPolicies() {
-  const session = await getSession()
+  const session = await requireSession()
   assertDatabaseConfigured()
   return db
     .select()
@@ -43,7 +42,7 @@ export async function getPolicies() {
 }
 
 export async function createPolicy(input: z.infer<typeof PolicyCreateSchema>) {
-  const session = await getSession()
+  const session = await requireSession()
   assertDatabaseConfigured()
   const data = PolicyCreateSchema.parse(input)
 
@@ -78,7 +77,7 @@ export async function updatePolicy(
   id: string,
   input: z.infer<typeof PolicyUpdateSchema>,
 ) {
-  const session = await getSession()
+  const session = await requireSession()
   assertDatabaseConfigured()
   const policyId = PolicyIdSchema.parse(id)
   const data = PolicyUpdateSchema.parse(input)
@@ -110,7 +109,7 @@ export async function updatePolicy(
 }
 
 export async function deletePolicy(id: string) {
-  const session = await getSession()
+  const session = await requireSession()
   assertDatabaseConfigured()
   const policyId = PolicyIdSchema.parse(id)
 

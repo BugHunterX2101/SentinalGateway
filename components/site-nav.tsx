@@ -26,7 +26,7 @@ export function SiteNav({ user }: SiteNavProps = {}) {
   return (
     <header className="sticky top-0 z-50 px-4 pt-4">
       <div className="glass mx-auto flex max-w-7xl items-center justify-between rounded-2xl px-4 py-3">
-        <Link href="/" className="flex items-center gap-2.5" onClick={() => setMobileOpen(false)}>
+        <Link href="/" prefetch className="flex items-center gap-2.5" onClick={() => setMobileOpen(false)}>
           <SentinelLogo />
           <span className="text-[15px] font-semibold tracking-tight text-foreground">
             Sentinel<span className="text-cyan"> Gateway</span>
@@ -42,6 +42,7 @@ export function SiteNav({ user }: SiteNavProps = {}) {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch
                 className={cn(
                   'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors',
                   active
@@ -103,6 +104,7 @@ export function SiteNav({ user }: SiteNavProps = {}) {
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch
                   onClick={() => setMobileOpen(false)}
                   className={cn(
                     'rounded-xl px-4 py-2.5 text-sm font-medium transition-colors',
