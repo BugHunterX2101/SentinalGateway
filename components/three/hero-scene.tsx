@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, Float, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useLive } from '@/hooks/use-live'
 
@@ -78,11 +78,11 @@ function ParticleStream({ intensity }: { intensity: number }) {
       arr[i * 3 + 0] = x + seeds[i * 4 + 1] * spread
       arr[i * 3 + 1] = y + seeds[i * 4 + 2] * spread
       arr[i * 3 + 2] = z + seeds[i * 4 + 1] * spread * 0.6
-      // dissolve over the outer 12% of the stream so the wide cloud tails off
-      // gently instead of ending abruptly at the container edge
+      // dissolve over the outer 8% with a steep curve so the tails taper
+      // cleanly instead of leaving dim specks near the container edge
       const edge = Math.min(t, 1 - t)
-      const fade = edge < 0.12 ? edge / 0.12 : 1
-      const alpha = Math.pow(fade, 1.5)
+      const fade = edge < 0.08 ? edge / 0.08 : 1
+      const alpha = Math.pow(fade, 2.5)
       col[i * 3 + 0] = alpha
       col[i * 3 + 1] = alpha
       col[i * 3 + 2] = alpha
@@ -111,43 +111,77 @@ function ParticleStream({ intensity }: { intensity: number }) {
   )
 }
 
-// Coral arcs swirling around the prism.
-function CoralRings({ stress }: { stress: number }) {
+// Full orbital rings around the prism, each carrying glowing satellites that
+// ride the ring's tilted plane. Complete circles (no cut arc ends) with each
+// ring spinning at its own rate; the whole system drifts slowly on world Y.
+interface RingDef {
+  r: number
+  tube: number
+  rot: [number, number, number]
+  speed: number
+  orbs: number
+}
+
+const RING_DEFS: RingDef[] = [
+  { r: 2.5, tube: 0.026, rot: [0.6, 0.3, 0], speed: 0.9, orbs: 3 },
+  { r: 3.1, tube: 0.02, rot: [1.15, 0.8, 0.4], speed: -0.65, orbs: 2 },
+  { r: 3.6, tube: 0.017, rot: [0.25, 1.45, 0.9], speed: 0.5, orbs: 2 },
+]
+
+const RING_GROUP_ROT = new THREE.Euler(0.12, 0, 0)
+
+function OrbitalRing({ def, stress }: { def: RingDef; stress: number }) {
+  const orbsRef = useRef<THREE.Group>(null)
+  useFrame((state) => {
+    const orbs = orbsRef.current
+    if (!orbs) return
+    const t = state.clock.elapsedTime
+    const rate = def.speed * (0.7 + stress * 0.9)
+    orbs.children.forEach((child, k) => {
+      const a = t * rate + (k / def.orbs) * Math.PI * 2
+      ;(child as THREE.Mesh).position.set(def.r * Math.cos(a), def.r * Math.sin(a), 0)
+    })
+  })
+  return (
+    <group rotation={def.rot}>
+      <mesh>
+        <torusGeometry args={[def.r, def.tube, 16, 128]} />
+        <meshStandardMaterial
+          color={'#ff6a52'}
+          emissive={'#ff6a52'}
+          emissiveIntensity={0.55 + stress}
+          roughness={0.35}
+          metalness={0.15}
+          transparent
+          opacity={0.92}
+        />
+      </mesh>
+      <group ref={orbsRef}>
+        {Array.from({ length: def.orbs }, (_, k) => (
+          <mesh key={k}>
+            <sphereGeometry args={[0.07, 16, 16]} />
+            <meshStandardMaterial
+              color={'#ffd9cf'}
+              emissive={'#ff6a52'}
+              emissiveIntensity={1.8}
+            />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  )
+}
+
+function RingSystem({ stress }: { stress: number }) {
   const group = useRef<THREE.Group>(null)
   useFrame((_, delta) => {
-    if (group.current) group.current.rotation.z += delta * (0.15 + stress * 0.4)
+    if (group.current) group.current.rotation.y += delta * 0.12
   })
-  const rings = useMemo(
-    () => [
-      { r: 2.4, tube: 0.028, rot: [0.6, 0.3, 0] as const, arc: Math.PI * 1.5 },
-      { r: 3.0, tube: 0.022, rot: [1.1, 0.8, 0.4] as const, arc: Math.PI * 1.2 },
-      { r: 3.5, tube: 0.02, rot: [0.2, 1.4, 0.9] as const, arc: Math.PI * 1.7 },
-    ],
-    [],
-  )
   return (
-    <group ref={group}>
-      {rings.map((ring, i) => (
-        <mesh key={i} rotation={ring.rot as unknown as [number, number, number]}>
-          <torusGeometry args={[ring.r, ring.tube, 16, 120, ring.arc]} />
-          <meshStandardMaterial
-            color={'#ff6a52'}
-            emissive={'#ff6a52'}
-            emissiveIntensity={0.6 + stress}
-            roughness={0.4}
-            metalness={0.1}
-          />
-        </mesh>
+    <group ref={group} rotation={RING_GROUP_ROT}>
+      {RING_DEFS.map((def, i) => (
+        <OrbitalRing key={i} def={def} stress={stress} />
       ))}
-      {[0, 1, 2, 3, 4].map((i) => {
-        const a = (i / 5) * Math.PI * 2
-        return (
-          <mesh key={`d${i}`} position={[Math.cos(a) * 3.2, Math.sin(a) * 3.2, Math.sin(a) * 0.8]}>
-            <sphereGeometry args={[0.08, 16, 16]} />
-            <meshStandardMaterial color={'#ff6a52'} emissive={'#ff6a52'} emissiveIntensity={1.2} />
-          </mesh>
-        )
-      })}
     </group>
   )
 }
@@ -157,33 +191,69 @@ function CoralRings({ stress }: { stress: number }) {
 const bgColor = new THREE.Color('#f4f6fb')
 
 function Prism() {
-  const mesh = useRef<THREE.Mesh>(null)
+  const group = useRef<THREE.Group>(null)
+  // Shared cone geometry so the wireframe facets always match the glass body.
+  const geometry = useMemo(() => new THREE.ConeGeometry(1, 1.7, 3), [])
+  const edges = useMemo(() => new THREE.EdgesGeometry(geometry), [geometry])
   useFrame((state) => {
-    if (mesh.current) {
-      mesh.current.rotation.y = state.clock.elapsedTime * 0.25
-      mesh.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.3) * 0.15
+    const g = group.current
+    if (g) {
+      g.rotation.y = state.clock.elapsedTime * 0.25
+      g.rotation.z = Math.sin(state.clock.elapsedTime * 0.3) * 0.15
     }
   })
   return (
-    <Float speed={1.4} rotationIntensity={0.2} floatIntensity={0.5}>
-      <mesh ref={mesh} scale={1.8}>
-        <coneGeometry args={[1, 1.7, 3]} />
-        <MeshTransmissionMaterial
-          transmission={1}
-          thickness={0.6}
-          roughness={0.05}
-          ior={1.35}
-          chromaticAberration={0.35}
-          anisotropy={0.15}
-          distortion={0.1}
-          distortionScale={0.15}
-          temporalDistortion={0.03}
-          color={'#ffffff'}
-          background={bgColor}
-        />
-      </mesh>
+    <Float speed={1.2} rotationIntensity={0.12} floatIntensity={0.35}>
+      <group ref={group} position={[0.55, 0.25, 0]} scale={1.8}>
+        <mesh geometry={geometry}>
+          <MeshTransmissionMaterial
+            transmission={1}
+            thickness={0.6}
+            roughness={0.04}
+            ior={1.35}
+            chromaticAberration={0.4}
+            anisotropy={0.15}
+            distortion={0.1}
+            distortionScale={0.15}
+            temporalDistortion={0.03}
+            color={'#ffffff'}
+            background={bgColor}
+          />
+        </mesh>
+        {/* Indigo wireframe facets drawn on top keep the glass defined against
+            the light page instead of reading as a flat grey shape. */}
+        <lineSegments geometry={edges} renderOrder={2}>
+          <lineBasicMaterial color={'#1a237e'} transparent opacity={0.3} />
+        </lineSegments>
+      </group>
     </Float>
   )
+}
+
+// Subtle parallax + breathing dolly. Listens on window because the hero
+// container is pointer-events-none; the whole scene stays inside the frustum
+// for the full range of motion (verified by pixel sampling).
+function CameraRig() {
+  const target = useRef({ x: 0, y: 0 })
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      target.current.x = (e.clientX / window.innerWidth) * 2 - 1
+      target.current.y = (e.clientY / window.innerHeight) * 2 - 1
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [])
+  useFrame((state) => {
+    const { camera } = state
+    const t = state.clock.elapsedTime
+    const tx = target.current.x * 0.35
+    const ty = -target.current.y * 0.22 + Math.sin(t * 0.15) * 0.12
+    camera.position.x += (tx - camera.position.x) * 0.04
+    camera.position.y += (ty - camera.position.y) * 0.04
+    camera.position.z = 9 + Math.sin(t * 0.1) * 0.25
+    camera.lookAt(0, 0, 0)
+  })
+  return null
 }
 
 export function HeroScene() {
@@ -209,9 +279,10 @@ export function HeroScene() {
         <Lightformer form="rect" intensity={1.4} position={[-4, 0, 3]} scale={6} color="#cfeeff" />
         <Lightformer form="circle" intensity={0.8} position={[4, -2, 2]} scale={5} color="#ffd9cf" />
       </Environment>
+      <CameraRig />
       <Prism />
       <ParticleStream intensity={intensity} />
-      <CoralRings stress={stress} />
+      <RingSystem stress={stress} />
     </Canvas>
   )
 }
