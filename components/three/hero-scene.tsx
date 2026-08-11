@@ -16,8 +16,8 @@ function useDotTexture() {
     const ctx = canvas.getContext('2d')!
     const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
     g.addColorStop(0, 'rgba(255,255,255,1)')
-    g.addColorStop(0.35, 'rgba(180,235,255,0.9)')
-    g.addColorStop(1, 'rgba(120,200,255,0)')
+    g.addColorStop(0.45, 'rgba(210,240,255,0.95)')
+    g.addColorStop(1, 'rgba(150,215,255,0)')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, size, size)
     const tex = new THREE.CanvasTexture(canvas)
@@ -26,85 +26,65 @@ function useDotTexture() {
   }, [])
 }
 
-// The stream is sized to stay inside the camera frustum for typical hero
-// container aspect ratios (camera z=9, fov 45 -> half-width ~4.6 units at
-// 1.25 aspect). If it reached wider, the container edge would slice the
-// cloud with a visible straight cut; the end-fade below dissolves the tails.
+// The stream spans the full hero canvas (now full page width) and flows
+// diagonally through the prism: tight beam at the centre, dispersing into a
+// cloud at each end. Every particle is the same cyan — no end fade — and the
+// cloud extends past the page edges on purpose, so particles enter and leave
+// the frame naturally instead of being sliced by the canvas.
 const COUNT = 900
-const START = new THREE.Vector3(-4.2, -2.6, -1.0)
-const END = new THREE.Vector3(4.2, 2.6, 1.0)
+const START = new THREE.Vector3(-5.8, -3.4, -2.0)
+const END = new THREE.Vector3(5.8, 3.4, 2.0)
 
-// A stream of particles flowing diagonally through the prism: tight beam at the
-// centre (where the prism refracts it) and dispersing into a cloud at each end.
-// Each end fades to black so the cloud dissolves before it reaches the canvas
-// edge — with additive blending, a black particle adds nothing, so there is no
-// hard cut where the widest part of the cloud leaves the hero container.
 function ParticleStream({ intensity }: { intensity: number }) {
   const pointsRef = useRef<THREE.Points>(null)
   const tex = useDotTexture()
 
-  const { positions, colors, seeds } = useMemo(() => {
+  const { positions, seeds } = useMemo(() => {
     const positions = new Float32Array(COUNT * 3)
-    const colors = new Float32Array(COUNT * 3)
     const seeds = new Float32Array(COUNT * 4) // t, offX, offY, speed
     for (let i = 0; i < COUNT; i++) {
       seeds[i * 4 + 0] = Math.random()
       seeds[i * 4 + 1] = (Math.random() - 0.5) * 2
       seeds[i * 4 + 2] = (Math.random() - 0.5) * 2
       seeds[i * 4 + 3] = 0.5 + Math.random() * 0.9
-      // full brightness until the first frame computes the end fade
-      colors[i * 3 + 0] = colors[i * 3 + 1] = colors[i * 3 + 2] = 1
     }
-    return { positions, colors, seeds }
+    return { positions, seeds }
   }, [])
 
   useFrame((_, delta) => {
     const pts = pointsRef.current
     if (!pts) return
     const posAttr = pts.geometry.attributes.position as THREE.BufferAttribute
-    const colAttr = pts.geometry.attributes.color as THREE.BufferAttribute
     const arr = posAttr.array as Float32Array
-    const col = colAttr.array as Float32Array
     const dt = Math.min(delta, 0.05)
     for (let i = 0; i < COUNT; i++) {
       let t = seeds[i * 4 + 0] + dt * 0.06 * seeds[i * 4 + 3] * (0.6 + intensity)
       if (t > 1) t -= 1
       seeds[i * 4 + 0] = t
       // narrow through the middle, wide at the ends
-      const spread = 0.15 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 1.1
+      const spread = 0.15 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 1.5
       const x = START.x + (END.x - START.x) * t
       const y = START.y + (END.y - START.y) * t
       const z = START.z + (END.z - START.z) * t
       arr[i * 3 + 0] = x + seeds[i * 4 + 1] * spread
       arr[i * 3 + 1] = y + seeds[i * 4 + 2] * spread
       arr[i * 3 + 2] = z + seeds[i * 4 + 1] * spread * 0.6
-      // dissolve over the outer 8% with a steep curve so the tails taper
-      // cleanly instead of leaving dim specks near the container edge
-      const edge = Math.min(t, 1 - t)
-      const fade = edge < 0.08 ? edge / 0.08 : 1
-      const alpha = Math.pow(fade, 2.5)
-      col[i * 3 + 0] = alpha
-      col[i * 3 + 1] = alpha
-      col[i * 3 + 2] = alpha
     }
     posAttr.needsUpdate = true
-    colAttr.needsUpdate = true
   })
 
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} count={COUNT} />
       </bufferGeometry>
       <pointsMaterial
         map={tex || undefined}
-        size={0.19}
-        vertexColors
+        size={0.21}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-        color={'#22c3e6'}
+        color={'#45c9f7'}
         sizeAttenuation
       />
     </points>

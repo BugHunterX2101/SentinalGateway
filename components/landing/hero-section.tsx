@@ -33,8 +33,9 @@ export function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
 
   return (
     <section className="relative">
-      {/* 3D centerpiece */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-full lg:w-[80%]">
+      {/* 3D centerpiece — full page width so the particle field covers the
+          entire page, not just the right column. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 h-full w-full">
         <HeroScene />
       </div>
 
