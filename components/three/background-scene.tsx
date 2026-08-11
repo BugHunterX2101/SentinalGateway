@@ -12,14 +12,11 @@ import { useLive } from '@/hooks/use-live'
  * Rendered once per route behind every page (fixed, z-0, pointer-events-none).
  * A layered, genuinely 3D composition:
  *
- *   1. EnergyWave   — a field of points undulating in Y and Z with layered
- *                     travelling waves: a living surface that churns faster
- *                     and taller while incidents are live.
- *   2. Constellation — a slowly rotating shell of nodes linked to their
+ *   1. Constellation — a slowly rotating shell of nodes linked to their
  *                     nearest neighbours — the "nervous system" motif.
- *   3. Shards       — a few drifting wireframe octahedra, hologram fragments.
- *   4. DriftField   — fast crossing foreground particles for parallax depth.
- *   5. IncidentPulses — expanding rings fired by real telemetry when a
+ *   2. Shards       — a few drifting wireframe octahedra, hologram fragments.
+ *   3. DriftField   — fast crossing foreground particles for parallax depth.
+ *   4. IncidentPulses — expanding rings fired by real telemetry when a
  *                     circuit is open or the anomaly score is high.
  *
  * Everything is Points / basic materials (no lights, shadows, or
@@ -86,77 +83,6 @@ function useFrustumFit(maxHalfExtent: number) {
 
 function isHidden() {
   return typeof document !== 'undefined' && document.hidden
-}
-
-interface WaveProps {
-  color: string
-  speedMul: number
-  stress: number
-  intensity: number
-}
-
-// A point surface driven by layered travelling waves — the centrepiece.
-function EnergyWave({ color, speedMul, stress, intensity }: WaveProps) {
-  const ref = useRef<THREE.Points>(null)
-  const tex = useDotTexture()
-  const fit = useFrustumFit(6.2)
-
-  const ROWS = 22
-  const COLS = 42
-  const count = ROWS * COLS
-  const { positions, base } = useMemo(() => {
-    const positions = new Float32Array(count * 3)
-    const base = new Float32Array(count * 2)
-    let i = 0
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        base[i * 2 + 0] = (c / (COLS - 1) - 0.5) * 12.4 // u
-        base[i * 2 + 1] = (r / (ROWS - 1) - 0.5) * 8.6 // v
-        i++
-      }
-    }
-    return { positions, base }
-  }, [count])
-
-  useFrame((state) => {
-    if (isHidden()) return
-    const pts = ref.current
-    if (!pts) return
-    const arr = (pts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
-    const t = state.clock.elapsedTime * (0.55 + speedMul * 0.5) * (1 + stress * 0.45)
-    const amp = (0.85 + intensity * 0.5) * (1 + stress * 0.35)
-    for (let i = 0; i < count; i++) {
-      const u = base[i * 2 + 0]
-      const v = base[i * 2 + 1]
-      const waveY =
-        Math.sin(u * 0.5 + t * 1.1) * 0.9 +
-        Math.sin(v * 0.7 - t * 1.5) * 0.55 +
-        Math.sin((u + v) * 0.32 + t * 0.7) * 0.65
-      arr[i * 3 + 0] = u
-      arr[i * 3 + 1] = v * 0.62 + waveY * amp
-      arr[i * 3 + 2] = Math.sin(u * 0.28 - t * 0.6) * 0.7 * amp + Math.cos(v * 0.34 + t * 0.45) * 0.5 * amp
-    }
-    ;(pts.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
-  })
-
-  return (
-    <points ref={ref} scale={fit}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={count} />
-        <bufferAttribute attach="attributes-uv" args={[base, 2]} count={count} />
-      </bufferGeometry>
-      <pointsMaterial
-        map={tex || undefined}
-        size={0.17}
-        transparent
-        opacity={Math.min(0.8, 0.42 + intensity * 0.25)}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        color={color}
-        sizeAttenuation
-      />
-    </points>
-  )
 }
 
 interface ConstellationProps {
@@ -483,14 +409,6 @@ export function BackgroundScene() {
         dpr={[1, 1.5]}
       >
         <CameraRig speedMul={theme.speed} />
-        <group rotation={[-0.24, 0, 0]}>
-          <EnergyWave
-            color={theme.primary}
-            speedMul={theme.speed}
-            stress={stress}
-            intensity={intensity}
-          />
-        </group>
         {!theme.lite && <Constellation color={theme.primary} glow={theme.glow} speedMul={theme.speed} />}
         {!theme.lite && <Shards color={theme.secondary} speedMul={theme.speed} />}
         <DriftField
