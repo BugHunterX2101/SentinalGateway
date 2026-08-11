@@ -128,8 +128,9 @@ function CoralRings({ stress }: { stress: number }) {
   )
 }
 
-// Refraction background: the pearl page colour so the glass reads bright, not black.
-const bgColor = new THREE.Color('#eef3fb')
+// Refraction background: the exact pearl page colour (--background token) so
+// the glass reads bright, not black, and blends with the page behind it.
+const bgColor = new THREE.Color('#f4f6fb')
 
 function Prism() {
   const mesh = useRef<THREE.Mesh>(null)

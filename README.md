@@ -639,7 +639,6 @@ SentinalGateway/
 │   │   ├── background-scene-host.tsx # Client-only lazy mount of the backdrop
 │   │   └── hero-scene.tsx          # Hero rotating prism (Three.js)
 │   │
-│   ├── ui/                         # shadcn/ui base primitives
 │   ├── auth-form.tsx               # Sign-in / Sign-up form (shared)
 │   ├── live-metrics-bar.tsx        # Sticky RPS/p99/error/circuit bar
 │   ├── nervous-system-map.tsx      # SVG service mesh canvas

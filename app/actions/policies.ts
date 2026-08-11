@@ -25,7 +25,8 @@ const PolicyCreateSchema = z.object({
 
 const PolicyUpdateSchema = z.object({
   budget: z.number().min(0).max(100).optional(),
-  state: z.enum(['learning', 'active', 'standby', 'paused']).optional(),
+  // Keep the API surface in sync with what the UI and simulation support.
+  state: z.enum(['learning', 'active', 'paused']).optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
 })
 

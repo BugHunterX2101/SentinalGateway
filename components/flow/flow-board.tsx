@@ -77,23 +77,27 @@ export function FlowBoard({ initialPolicies }: Props) {
 
   function deployPolicyChange() {
     startTransition(async () => {
+      // Operate on the exact selected row — never fall back to a different
+      // lane if the selection went stale mid-session.
+      const target = merged.find((p) => p.id === activeId)
+      if (!target) return
       try {
-        await updatePolicy(active.id, { budget: active.budget, state: 'active' })
+        await updatePolicy(target.id, { budget: target.budget, state: 'active' })
         // Reflect the deployed values locally so the badge/budget bar match
         // the DB immediately — no reload needed.
         setPolicies((prev) =>
           prev.map((p) =>
-            p.id === active.id
-              ? { ...p, budget: String(active.budget), state: 'active' as const }
+            p.id === target.id
+              ? { ...p, budget: String(target.budget), state: 'active' as const }
               : p,
           ),
         )
         setBudgetOverride((prev) => {
           const next = { ...prev }
-          delete next[active.id]
+          delete next[target.id]
           return next
         })
-        setDeployFeedback(`Policy "${active.name}" deployed at ${active.budget}% budget.`)
+        setDeployFeedback(`Policy "${target.name}" deployed at ${target.budget}% budget.`)
       } catch {
         setDeployFeedback('Deploy failed — please retry.')
       }
@@ -111,15 +115,22 @@ export function FlowBoard({ initialPolicies }: Props) {
 
   function handleDeleteConfirm() {
     startDeleteTransition(async () => {
+      // Delete the exact selected row; refuse to act if it vanished (never
+      // fall back to a different lane via the `active` shortcut).
+      const target = policies.find((p) => p.id === activeId)
+      if (!target) {
+        setDeleteConfirm(false)
+        return
+      }
       try {
-        await deletePolicy(active.id)
+        await deletePolicy(target.id)
         // Remove from local list and select next available policy.
-        const remaining = policies.filter((p) => p.id !== active.id)
+        const remaining = policies.filter((p) => p.id !== target.id)
         setPolicies(remaining)
         setActiveId(remaining[0]?.id ?? '')
         setBudgetOverride((prev) => {
           const next = { ...prev }
-          delete next[active.id]
+          delete next[target.id]
           return next
         })
         setDeleteConfirm(false)

@@ -119,7 +119,7 @@ export function AuthForm({ mode, redirectTo = '/command-center' }: AuthFormProps
             className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
           {mode === 'sign-up' && (
-            <p className="text-[11px] text-muted-foreground">Minimum 8 characters recommended.</p>
+            <p className="text-[11px] text-muted-foreground">Minimum 8 characters required.</p>
           )}
         </div>
 
