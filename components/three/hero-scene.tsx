@@ -32,51 +32,71 @@ const END = new THREE.Vector3(7, 3.5, 2.0)
 
 // A stream of particles flowing diagonally through the prism: tight beam at the
 // centre (where the prism refracts it) and dispersing into a cloud at each end.
+// Each end fades to black so the cloud dissolves before it reaches the canvas
+// edge — with additive blending, a black particle adds nothing, so there is no
+// hard cut where the widest part of the cloud leaves the hero container.
 function ParticleStream({ intensity }: { intensity: number }) {
   const pointsRef = useRef<THREE.Points>(null)
   const tex = useDotTexture()
 
-  const { positions, seeds } = useMemo(() => {
+  const { positions, colors, seeds } = useMemo(() => {
     const positions = new Float32Array(COUNT * 3)
+    const colors = new Float32Array(COUNT * 3)
     const seeds = new Float32Array(COUNT * 4) // t, offX, offY, speed
     for (let i = 0; i < COUNT; i++) {
       seeds[i * 4 + 0] = Math.random()
       seeds[i * 4 + 1] = (Math.random() - 0.5) * 2
       seeds[i * 4 + 2] = (Math.random() - 0.5) * 2
       seeds[i * 4 + 3] = 0.5 + Math.random() * 0.9
+      // full brightness until the first frame computes the end fade
+      colors[i * 3 + 0] = colors[i * 3 + 1] = colors[i * 3 + 2] = 1
     }
-    return { positions, seeds }
+    return { positions, colors, seeds }
   }, [])
 
   useFrame((_, delta) => {
     const pts = pointsRef.current
     if (!pts) return
-    const arr = (pts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
+    const posAttr = pts.geometry.attributes.position as THREE.BufferAttribute
+    const colAttr = pts.geometry.attributes.color as THREE.BufferAttribute
+    const arr = posAttr.array as Float32Array
+    const col = colAttr.array as Float32Array
     const dt = Math.min(delta, 0.05)
     for (let i = 0; i < COUNT; i++) {
       let t = seeds[i * 4 + 0] + dt * 0.06 * seeds[i * 4 + 3] * (0.6 + intensity)
       if (t > 1) t -= 1
       seeds[i * 4 + 0] = t
       // narrow through the middle, wide at the ends
-      const spread = 0.2 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 2.4
+      const spread = 0.2 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 1.8
       const x = START.x + (END.x - START.x) * t
       const y = START.y + (END.y - START.y) * t
       const z = START.z + (END.z - START.z) * t
       arr[i * 3 + 0] = x + seeds[i * 4 + 1] * spread
       arr[i * 3 + 1] = y + seeds[i * 4 + 2] * spread
       arr[i * 3 + 2] = z + seeds[i * 4 + 1] * spread * 0.6
+      // dissolve over the outer 12% of the stream so the wide cloud tails off
+      // gently instead of ending abruptly at the container edge
+      const edge = Math.min(t, 1 - t)
+      const fade = edge < 0.12 ? edge / 0.12 : 1
+      const alpha = Math.pow(fade, 1.5)
+      col[i * 3 + 0] = alpha
+      col[i * 3 + 1] = alpha
+      col[i * 3 + 2] = alpha
     }
-    ;(pts.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
+    posAttr.needsUpdate = true
+    colAttr.needsUpdate = true
   })
 
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} count={COUNT} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} count={COUNT} />
       </bufferGeometry>
       <pointsMaterial
         map={tex || undefined}
         size={0.22}
+        vertexColors
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
