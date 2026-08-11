@@ -26,9 +26,13 @@ function useDotTexture() {
   }, [])
 }
 
+// The stream is sized to stay inside the camera frustum for typical hero
+// container aspect ratios (camera z=9, fov 45 -> half-width ~4.6 units at
+// 1.25 aspect). If it reached wider, the container edge would slice the
+// cloud with a visible straight cut; the end-fade below dissolves the tails.
 const COUNT = 900
-const START = new THREE.Vector3(-7, -3.5, -2.0)
-const END = new THREE.Vector3(7, 3.5, 2.0)
+const START = new THREE.Vector3(-4.2, -2.6, -1.0)
+const END = new THREE.Vector3(4.2, 2.6, 1.0)
 
 // A stream of particles flowing diagonally through the prism: tight beam at the
 // centre (where the prism refracts it) and dispersing into a cloud at each end.
@@ -67,7 +71,7 @@ function ParticleStream({ intensity }: { intensity: number }) {
       if (t > 1) t -= 1
       seeds[i * 4 + 0] = t
       // narrow through the middle, wide at the ends
-      const spread = 0.2 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 1.8
+      const spread = 0.15 + Math.pow(Math.abs(t - 0.5) * 2, 2.2) * 1.1
       const x = START.x + (END.x - START.x) * t
       const y = START.y + (END.y - START.y) * t
       const z = START.z + (END.z - START.z) * t
@@ -95,7 +99,7 @@ function ParticleStream({ intensity }: { intensity: number }) {
       </bufferGeometry>
       <pointsMaterial
         map={tex || undefined}
-        size={0.22}
+        size={0.19}
         vertexColors
         transparent
         depthWrite={false}
