@@ -48,6 +48,7 @@ The control plane is a live, real-time web application backed by **Neon PostgreS
 - **Dual-format audit log.** Every operator action and automated mitigation is recorded with type, actor, subject, and detail, exportable as JSON or CSV.
 - **Public guest telemetry.** Unauthenticated visitors see live aggregate KPIs (throughput, p99, error rate, circuit count) through a sanitized endpoint that never exposes topology.
 - **Edge-level auth protection.** A sliding-window rate limiter (10 requests / 60 seconds / IP) and a session guard run in middleware, before a request ever reaches the application server. Sign-up additionally requires a verified email provider (well-known domain or MX-record check), a five-rule strong password, per-IP sign-up rate limiting, a honeypot trap for bots, and a temporary lockout after repeated failed sign-ins.
+- **Animated 3D hero.** The landing hero is a full-width Three.js scene: a stream of bright cyan particles flows diagonally across the entire page through a refractive, wireframe-faceted prism, circled by orbital rings carrying glowing satellites. The particles are uniformly blue end to end, the scene follows the cursor with subtle parallax, and flow speed scales with the live telemetry stream.
 - **Live 3D background across every page.** A layered WebGL backdrop renders behind every route: a slowly rotating constellation of linked nodes, drifting wireframe hologram shards, and crossing foreground particles — all Points/basic materials (no lights or post-processing, ~8 draw calls). The camera breathes and follows the mouse for parallax; live telemetry drives the scene (incidents fire expanding pulse rings); every layer is scaled to the camera frustum so nothing clips at any screen size; the loop pauses when the tab is hidden and respects `prefers-reduced-motion`.
 - **Low-latency navigation.** Every dashboard route ships a `loading.tsx` skeleton that paints instantly during client-side navigation; the auth session is resolved once per request (memoized) instead of once per page/action; page data loads in parallel; the decisions list fetches all step traces in a single query (no N+1); and Vercel functions are pinned to `sin1`, colocated with the Neon database.
 
@@ -451,7 +452,7 @@ graph TD
         LP --> FG["FeatureGrid"]
         LP --> CL["ClosedLoop"]
         LP --> CF["CtaFooter"]
-        HS --> HSc["HeroScene (Three.js prism)"]
+        HS --> HSc["HeroScene (full-width 3D scene: prism, orbital rings, particle field)"]
     end
 
     subgraph Command["/command-center"]
@@ -510,6 +511,7 @@ graph TD
 - **Glass-box decisions.** Every intervention stores a full reasoning trace (phase, confidence, per-step latency); operators approve or roll back with a single click, and a rollback restores the exact node affected.
 - **Durable audit log.** Every operator action and automated mitigation is recorded as a typed entry and exported as JSON or CSV.
 - **Hardened authentication.** Sign-ups are restricted to verified email providers (well-known domains or MX-record verified, disposable domains rejected), passwords must meet a five-rule strength policy, failed sign-ins trigger a temporary per-account lockout, sign-up is rate-limited per IP, and a honeypot field quietly drops bots. Auth endpoints are additionally throttled at the edge (10 req / 60 s / IP) with `Retry-After` headers.
+- **Animated 3D hero.** A full-width particle stream flows through a wireframe prism with orbital rings and satellites on the landing page, following the cursor with parallax and pacing itself to live traffic.
 - **Live 3D background.** A lazy-mounted WebGL backdrop animates behind every page, reacts to live telemetry (incidents fire pulse rings), pauses when the tab is hidden, and respects `prefers-reduced-motion`.
 - **Low-latency navigation.** Instant loading skeletons, one memoized session lookup per request, parallel page data, a single-query decisions fetch (no N+1), and Vercel functions pinned next to the database in `sin1`.
 
@@ -519,7 +521,7 @@ graph TD
 
 | Route | Visibility | Description |
 |-------|------------|-------------|
-| `/` | Public | Landing — live telemetry stats, feature grid, closed-loop explainer, CTA. CTAs are auth-aware (guests see Sign Up; operators see Command Center). |
+| `/` | Public | Landing — full-width animated 3D hero, live telemetry stats, feature grid, closed-loop explainer, CTA. CTAs are auth-aware (guests see Sign Up; operators see Command Center). |
 | `/sign-in` | Public | Email + password sign-in. Redirects authenticated users away. Back-to-home link. |
 | `/sign-up` | Public | Operator account registration — verified email providers only, strong password with live rule checklist. Redirects authenticated users away. |
 | `/command-center` | Protected | Live service map (SVG), KPI cards, anomaly feed, node action controls. |
@@ -617,7 +619,8 @@ SentinalGateway/
 │   ├── three/
 │   │   ├── background-scene.tsx    # Live-data 3D backdrop (per-route themes)
 │   │   ├── background-scene-host.tsx # Client-only lazy mount of the backdrop
-│   │   └── hero-scene.tsx          # Hero rotating prism (Three.js)
+│   │   └── hero-scene.tsx          # Hero 3D scene — refractive prism, orbital
+│   │                               # rings + satellites, full-width particle field
 │   │
 │   ├── auth-form.tsx               # Sign-in / Sign-up form (shared)
 │   ├── live-metrics-bar.tsx        # Sticky RPS/p99/error/circuit bar
