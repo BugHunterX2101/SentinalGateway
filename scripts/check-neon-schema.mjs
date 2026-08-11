@@ -14,10 +14,12 @@ if (existsSync(envPath)) {
   }
 }
 
-const connectionString = process.env.DATABASE_URL
+// Same resolution as lib/db: prefer DATABASE_URL_1 (Vercel suffixed var),
+// fall back to DATABASE_URL.
+const connectionString = process.env.DATABASE_URL_1 || process.env.DATABASE_URL
 
 if (!connectionString) {
-  console.error('DATABASE_URL is required')
+  console.error('DATABASE_URL (or DATABASE_URL_1) is required')
   process.exit(1)
 }
 

@@ -67,8 +67,10 @@ export async function applyDecisionAction(id: string, input: z.infer<typeof Acti
   // On rollback: restore whichever node this decision targeted, using its
   // learned baseline. Falls back to the payments node for legacy rows that
   // predate the node_id column.
+  let rollbackNodeId: string | null = null
   if (action === 'rollback') {
     const nodeId = existing.nodeId ?? 'payments'
+    rollbackNodeId = nodeId
     const base = baselineFor(nodeId)
     await db
       .update(serviceNodes)
@@ -90,7 +92,7 @@ export async function applyDecisionAction(id: string, input: z.infer<typeof Acti
     detail:
       action === 'approve'
         ? `Operator ${session.user.name ?? session.user.email} approved automated mitigation.`
-        : `Operator ${session.user.name ?? session.user.email} rolled back mitigation — Payments circuit reset.`,
+        : `Operator ${session.user.name ?? session.user.email} rolled back mitigation — ${rollbackNodeId ? (baselineFor(rollbackNodeId)?.name ?? rollbackNodeId) : 'service'} circuit reset to closed.`,
   })
 
   // Revalidate both pages: decisions shows the updated status, command-center

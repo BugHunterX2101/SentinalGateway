@@ -43,8 +43,10 @@ export function DecisionInspector({ decisions }: Props) {
   // so the list stays current without a manual reload.
   useEffect(() => {
     setNow(Date.now())
+    // The clock runs fast so relative timestamps stay honest; the server
+    // refresh (which pulls new decisions + their traces) runs slower.
     const refreshId = setInterval(() => router.refresh(), 15000)
-    const clockId = setInterval(() => setNow(Date.now()), 15000)
+    const clockId = setInterval(() => setNow(Date.now()), 5000)
     return () => {
       clearInterval(refreshId)
       clearInterval(clockId)

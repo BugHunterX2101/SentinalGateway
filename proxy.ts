@@ -17,9 +17,21 @@ interface RLEntry { count: number; resetAt: number }
 const rlStore = new Map<string, RLEntry>()
 const RL_WINDOW = 60_000
 const RL_MAX    = 10
+// Hard cap so a spoofed x-forwarded-for storm can never grow the map without
+// bound (same guard as lib/rate-limit.ts).
+const RL_MAX_ENTRIES = 10_000
 
 function checkRateLimit(ip: string): { allowed: boolean; resetAt: number } {
   const now = Date.now()
+
+  if (rlStore.size >= RL_MAX_ENTRIES) {
+    // Opportunistic purge of expired entries before evicting anything live.
+    for (const [key, entry] of rlStore.entries()) {
+      if (now > entry.resetAt) rlStore.delete(key)
+    }
+    if (rlStore.size >= RL_MAX_ENTRIES) rlStore.clear()
+  }
+
   const entry = rlStore.get(ip)
   if (!entry || now > entry.resetAt) {
     rlStore.set(ip, { count: 1, resetAt: now + RL_WINDOW })

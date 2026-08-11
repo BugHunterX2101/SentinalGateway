@@ -154,6 +154,10 @@ export function CommandConsole() {
 function recommendation(node: ServiceNode) {
   if (node.circuit === 'open')
     return 'Circuit is open and traffic is buffered. Half-open probe scheduled — no action needed unless recovery stalls past 2 minutes.'
+  if (node.health === 'critical')
+    return 'Error rate and latency are both above threshold. Adaptive shaping is shedding traffic; apply mitigation or scale the pool now.'
+  if (node.health === 'quarantined')
+    return 'The node is isolated from the traffic graph while Sentinel validates its health. Expect re-admission once probes recover.'
   if (node.health === 'degraded')
     return 'Latency is drifting above SLO. Adaptive shaping is shedding low-priority traffic; consider scaling the pool if the trend continues.'
   return 'Operating within learned baselines. Sentinel is observing and will intervene automatically if signals cross threshold.'

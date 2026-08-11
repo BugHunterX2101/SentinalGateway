@@ -5,6 +5,8 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    // Same resolution as lib/db: prefer DATABASE_URL_1 (Vercel suffixed
+    // var), fall back to DATABASE_URL.
+    url: process.env.DATABASE_URL_1 || process.env.DATABASE_URL!,
   },
 })

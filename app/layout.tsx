@@ -4,7 +4,7 @@ import { BackgroundSceneHost } from '@/components/three/background-scene-host'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Sentinel Gateway - The Self-Aware API Gateway',
+  title: 'Sentinel Gateway — The Self-Aware API Gateway',
   description:
     'Sentinel Gateway is an intelligent API gateway with real-time anomaly detection, adaptive traffic shaping, and self-healing circuit breaking. See your traffic think.',
   generator: 'v0.app',

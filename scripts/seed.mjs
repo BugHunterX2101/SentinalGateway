@@ -27,9 +27,11 @@ if (existsSync(envPath)) {
   }
 }
 
-const connectionString = process.env.DATABASE_URL
+// Same resolution as lib/db: DATABASE_URL_1 is preferred when set (Vercel's
+// "Add another" flow creates suffixed names), falling back to DATABASE_URL.
+const connectionString = process.env.DATABASE_URL_1 || process.env.DATABASE_URL
 if (!connectionString) {
-  console.error('DATABASE_URL is required (set it in .env.local)')
+  console.error('DATABASE_URL (or DATABASE_URL_1) is required (set it in .env.local)')
   process.exit(1)
 }
 

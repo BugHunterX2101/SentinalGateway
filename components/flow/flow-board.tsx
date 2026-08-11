@@ -79,6 +79,20 @@ export function FlowBoard({ initialPolicies }: Props) {
     startTransition(async () => {
       try {
         await updatePolicy(active.id, { budget: active.budget, state: 'active' })
+        // Reflect the deployed values locally so the badge/budget bar match
+        // the DB immediately — no reload needed.
+        setPolicies((prev) =>
+          prev.map((p) =>
+            p.id === active.id
+              ? { ...p, budget: String(active.budget), state: 'active' as const }
+              : p,
+          ),
+        )
+        setBudgetOverride((prev) => {
+          const next = { ...prev }
+          delete next[active.id]
+          return next
+        })
         setDeployFeedback(`Policy "${active.name}" deployed at ${active.budget}% budget.`)
       } catch {
         setDeployFeedback('Deploy failed — please retry.')

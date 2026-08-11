@@ -49,7 +49,7 @@ export function NervousSystemMap({
       </defs>
 
       {/* edges */}
-      {trafficEdges.map((edge, i) => {
+      {trafficEdges.map((edge) => {
         const a = nodeById[edge.from]
         const b = nodeById[edge.to]
         if (!a || !b) return null
@@ -61,7 +61,7 @@ export function NervousSystemMap({
         const color = edgeColor[edge.status]
         const severed = edge.status === 'severed'
         return (
-          <g key={i}>
+          <g key={`${edge.from}-${edge.to}`}>
             <line
               x1={x1}
               y1={y1}
